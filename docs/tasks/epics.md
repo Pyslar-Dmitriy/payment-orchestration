@@ -4,7 +4,7 @@
   - [X] [TASK-002 — Determine ADRs](./epic-00/TASK-002.md)
   - [X] [TASK-003 — Prepare C4 and sequence diagrams](./epic-00/TASK-003.md)
 - #### EPIC-01. Monorepo and engineering framework
-  - [ ] [TASK-010 — Initialize monorepo structure](./epic-01/TASK-010.md)
+  - [X] [TASK-010 — Initialize monorepo structure](./epic-01/TASK-010.md)
   - [ ] [TASK-011 — Prepare Laravel service template](./epic-01/TASK-011.md)
   - [ ] [TASK-012 — Configure shared packages](./epic-01/TASK-012.md)
   - [ ] [TASK-013 — Set up path-based CI in GitHub Actions](./epic-01/TASK-013.md)
