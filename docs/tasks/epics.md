@@ -1,0 +1,105 @@
+# Epics
+- #### EPIC-00. Scope and architectural solutions
+  - [X] [TASK-001 — Describe the platform's product scope](./epic-00/TASK-001.md)
+  - [X] [TASK-002 — Determine ADRs](./epic-00/TASK-002.md)
+  - [X] [TASK-003 — Prepare C4 and sequence diagrams](./epic-00/TASK-003.md)
+- #### EPIC-01. Monorepo and engineering framework
+  - [ ] [TASK-010 — Initialize monorepo structure](./epic-01/TASK-010.md)
+  - [ ] [TASK-011 — Prepare Laravel service template](./epic-01/TASK-011.md)
+  - [ ] [TASK-012 — Configure shared packages](./epic-01/TASK-012.md)
+  - [ ] [TASK-013 — Set up path-based CI in GitHub Actions](./epic-01/TASK-013.md)
+- #### EPIC-02. Local Infrastructure
+  - [ ] [TASK-020 — Enable Docker Compose for the entire platform](./epic-02/TASK-020.md)
+  - [ ] [TASK-021 — Prepare migrations and separate databases/schemas for services](./epic-02/TASK-021.md)
+  - [ ] [TASK-022 — Add dev commands and bootstrap scripts](./epic-02/TASK-022.md)
+- #### EPIC-03. API Contracts and Message Schemas
+  - [ ] [TASK-030 — Describe OpenAPI for Merchant API](./epic-03/TASK-030.md)
+  - [ ] [TASK-031 — Describe async contracts for Kafka and RabbitMQ](./epic-03/TASK-031.md)
+  - [ ] [TASK-032 — Implement JSON Schema validation for events](./epic-03/TASK-032.md)
+  - [ ] [TASK-033 — Define schema evolution and compatibility strategy for Kafka topics](./epic-03/TASK-033.md)
+- #### EPIC-04. Merchant API
+  - [ ] [TASK-040 — Implement authentication and merchant context](./epic-04/TASK-040.md)
+  - [ ] [TASK-041 — Implement `POST /payments`](./epic-04/TASK-041.md)
+  - [ ] [TASK-042 — Implement `GET /payments/{id}`](./epic-04/TASK-042.md)
+  - [ ] [TASK-043 — Implement `POST /refunds`](./epic-04/TASK-043.md)
+  - [ ] [TASK-044 — Implement `GET /refunds/{id}`](./epic-04/TASK-044.md)
+  - [ ] [TASK-045 — Add rate limiting and error contract](./epic-04/TASK-045.md)
+- #### EPIC-05. Payment Domain Service
+  - [ ] [TASK-050 — Design a payment data model](./epic-05/TASK-050.md)
+  - [ ] [TASK-051 — Implement Payment Aggregate and State Transitions](./epic-05/TASK-051.md)
+  - [ ] [TASK-056 — Define the payment state machine transition table](./epic-05/TASK-056.md)
+  - [ ] [TASK-052 — Implement the "create payment" use case](./epic-05/TASK-052.md)
+  - [ ] [TASK-053 — Implement "update status" use cases](./epic-05/TASK-053.md)
+  - [ ] [TASK-054 — Implement outbox publisher](./epic-05/TASK-054.md)
+  - [ ] [TASK-055 — Add optimistic locking or selective pessimistic locking](./epic-05/TASK-055.md)
+- #### EPIC-06. Payment Orchestrator with Temporal
+  - [ ] [TASK-060 — Connect Temporal to the Laravel orchestrator service](./epic-06/TASK-060.md)
+  - [ ] [TASK-061 — Implement PaymentWorkflow](./epic-06/TASK-061.md)
+  - [ ] [TASK-062 — Implement RefundWorkflow](./epic-06/TASK-062.md)
+  - [ ] [TASK-063 — Implement activities for provider, ledger, and notifications](./epic-06/TASK-063.md)
+  - [ ] [TASK-064 — Implement signal handling from webhook normalizer](./epic-06/TASK-064.md)
+  - [ ] [TASK-065 — Implement compensation handling for permanent post-side-effect workflow failures](./epic-06/TASK-065.md)
+- #### EPIC-07. Provider Gateway
+  - [ ] [TASK-070 — Design a provider abstraction layer](./epic-07/TASK-070.md)
+  - [ ] [TASK-071 — Implement MockProvider](./epic-07/TASK-071.md)
+  - [ ] [TASK-072 — Implement provider request/response audit](./epic-07/TASK-072.md)
+  - [ ] [TASK-073 — Implement provider routing strategy](./epic-07/TASK-073.md)
+- #### EPIC-08. Webhook Ingest
+  - [ ] [TASK-080 — Implement a webhook receiving endpoint](./epic-08/TASK-080.md)
+  - [ ] [TASK-081 — Implement deduplication of incoming webhooks](./epic-08/TASK-081.md)
+  - [ ] [TASK-082 — Preserve raw payload and processing state](./epic-08/TASK-082.md)
+  - [ ] [TASK-083 — Publish a raw webhook task to RabbitMQ](./epic-08/TASK-083.md)
+- #### EPIC-09. Webhook Normalizer
+  - [ ] [TASK-090 — Implement a raw webhook queue consumer](./epic-09/TASK-090.md)
+  - [ ] [TASK-091 — Implement mapping of external statuses to internal ones](./epic-09/TASK-091.md)
+  - [ ] [TASK-092 — Signal Temporal workflow with a normalized event](./epic-09/TASK-092.md)
+  - [ ] [TASK-093 — Publish a Kafka event about a normalized webhook](./epic-09/TASK-093.md)
+  - [ ] [TASK-094 — Handle signals delivered to dead, completed, or timed-out Temporal workflows](./epic-09/TASK-094.md)
+- #### EPIC-10. Ledger Service
+  - [ ] [TASK-100 — Design a ledger model](./epic-10/TASK-100.md)
+  - [ ] [TASK-101 — Implement posting ledger entries for capture](./epic-10/TASK-101.md)
+  - [ ] [TASK-102 — Implement refund ledger posting](./epic-10/TASK-102.md)
+  - [ ] [TASK-103 — Implement ledger outbox events](./epic-10/TASK-103.md)
+- #### EPIC-11. Merchant Callback Delivery
+  - [ ] [TASK-110 — Design a callback subscription model and delivery history](./epic-11/TASK-110.md)
+  - [ ] [TASK-111 — Implement a dispatch callback task in RabbitMQ](./epic-11/TASK-111.md)
+  - [ ] [TASK-112 — Implement a delivery worker with retry/backoff/DLQ](./epic-11/TASK-112.md)
+- #### EPIC-12. Kafka and projections
+  - [ ] [TASK-120 — Configure domain event publishing in Kafka](./epic-12/TASK-120.md)
+  - [ ] [TASK-121 — Implement Reporting Projection Service](./epic-12/TASK-121.md)
+  - [ ] [TASK-122 — Implement replay-friendly projection processing](./epic-12/TASK-122.md)
+- #### EPIC-13. Observability
+  - [ ] [TASK-130 — Implement correlation and causation ids across the platform](./epic-13/TASK-130.md)
+  - [ ] [TASK-131 — Configure structured logging](./epic-13/TASK-131.md)
+  - [ ] [TASK-132 — Set up basic metrics and dashboards](./epic-13/TASK-132.md)
+  - [ ] [TASK-133 - Add tracing for key scenarios](./epic-13/TASK-133.md)
+- #### EPIC-14. Reliability, retries, DLQ, replay
+  - [ ] [TASK-140 — Implement inbox/processed message tracking in consumers](./epic-14/TASK-140.md)
+  - [ ] [TASK-141 — Configure retry policy for RabbitMQ workers](./epic-14/TASK-141.md)
+  - [ ] [TASK-142 — Configure retry and timeout policies for Temporal activities](./epic-14/TASK-142.md)
+  - [ ] [TASK-143 — Implement a manual replay/runbook for DLQ](./epic-14/TASK-143.md)
+- #### EPIC-15. Testing
+  - [ ] [TASK-150 — Write unit tests for domain logic](./epic-15/TASK-150.md)
+  - [ ] [TASK-151 — Write integration tests for key services](./epic-15/TASK-151.md)
+  - [ ] [TASK-152 — Write contract tests for HTTP and messages](./epic-15/TASK-152.md)
+  - [ ] [TASK-153 — Write an e2e script for a complete payment flow](./epic-15/TASK-153.md)
+- #### EPIC-16. Failure scenarios
+  - [ ] [TASK-160 — Simulate a duplicate webhook scenario](./epic-16/TASK-160.md)
+  - [ ] [TASK-161 — Simulate an out-of-order webhook scenario](./epic-16/TASK-161.md)
+  - [ ] [TASK-162 — Simulate a provider timeout and retry avalanche scenario](./epic-16/TASK-162.md)
+  - [ ] [TASK-163 — Simulate a merchant callback failure scenario](./epic-16/TASK-163.md)
+- #### EPIC-17. Load Testing
+  - [ ] [TASK-170 — Prepare a k6 script for POST /payments](./epic-17/TASK-170.md)
+  - [ ] [TASK-171 — Prepare a webhook storm test](./epic-17/TASK-171.md)
+  - [ ] [TASK-172 — Fix bottlenecks and make perf notes](./epic-17/TASK-172.md)
+- #### EPIC-18. PostgreSQL hardening
+  - [ ] [TASK-180 — Add indexes for hot queries](./epic-18/TASK-180.md)
+  - [ ] [TASK-181 — Prepare partitioning strategy for append-only tables](./epic-18/TASK-181.md)
+  - [ ] [TASK-182 — Document autovacuum/maintenance considerations](./epic-18/TASK-182.md)
+- #### EPIC-19. Security и production hygiene
+  - [ ] [TASK-190 — Implement webhook signing and validation](./epic-19/TASK-190.md)
+  - [ ] [TASK-191 — Minimize sensitive data in logs](./epic-19/TASK-191.md)
+  - [ ] [TASK-192 - Document the PCI boundary](./epic-19/TASK-192.md)
+- #### EPIC-20: Kubernetes and Independent Deployment
+  - [ ] [TASK-200 — Prepare Kubernetes manifests for key services](./epic-20/TASK-200.md)
+  - [ ] [TASK-201 - Set up an independent scaling example](./epic-20/TASK-201.md)
