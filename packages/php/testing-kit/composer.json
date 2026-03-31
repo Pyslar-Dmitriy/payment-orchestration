@@ -1,0 +1,19 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "payment-orchestration/testing-kit",
+    "description": "Test utilities: fakes, stubs, and PHPUnit assertion helpers",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.3",
+        "payment-orchestration/shared-primitives": "*",
+        "phpunit/phpunit": "^12.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "PaymentOrchestration\\TestingKit\\": "src/"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

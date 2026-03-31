@@ -1,0 +1,18 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "payment-orchestration/contracts",
+    "description": "Shared event DTO and message schema contracts",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.3",
+        "payment-orchestration/shared-primitives": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "PaymentOrchestration\\Contracts\\": "src/"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
