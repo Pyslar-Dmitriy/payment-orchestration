@@ -1,0 +1,78 @@
+name: Contract Check
+
+on:
+  push:
+    paths:
+      - 'contracts/**'
+  pull_request:
+    paths:
+      - 'contracts/**'
+
+jobs:
+  validate-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Spectral
+        run: npm install --global @stoplight/spectral-cli
+
+      - name: Validate OpenAPI specs
+        run: |
+          shopt -s globstar nullglob
+          specs=(contracts/**/*.{yaml,yml,json})
+          if [ ${#specs[@]} -eq 0 ]; then
+            echo "No contract files found — skipping validation."
+            exit 0
+          fi
+          for spec in "${specs[@]}"; do
+            echo "Validating $spec"
+            spectral lint "$spec" --ruleset spectral:oas
+          done
+
+  test-dependents:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - ledger-service
+          - merchant-api
+          - merchant-callback-delivery
+          - payment-domain
+          - payment-orchestrator
+          - provider-gateway
+          - reporting-projection
+          - webhook-ingest
+          - webhook-normalizer
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_sqlite
+          coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: apps/${{ matrix.service }}/vendor
+          key: composer-${{ matrix.service }}-${{ hashFiles(format('apps/{0}/composer.lock', matrix.service)) }}
+          restore-keys: composer-${{ matrix.service }}-
+
+      - name: Install dependencies
+        working-directory: apps/${{ matrix.service }}
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Copy .env
+        working-directory: apps/${{ matrix.service }}
+        run: cp .env.example .env
+
+      - name: Generate app key
+        working-directory: apps/${{ matrix.service }}
+        run: php artisan key:generate
+
+      - name: Run unit tests
+        working-directory: apps/${{ matrix.service }}
+        run: php artisan test --testsuite=Unit
