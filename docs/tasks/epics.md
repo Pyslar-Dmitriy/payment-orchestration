@@ -7,7 +7,7 @@
   - [X] [TASK-010 — Initialize monorepo structure](./epic-01/TASK-010.md)
   - [X] [TASK-011 — Prepare Laravel service template](./epic-01/TASK-011.md)
   - [X] [TASK-012 — Configure shared packages](./epic-01/TASK-012.md)
-  - [ ] [TASK-013 — Set up path-based CI in GitHub Actions](./epic-01/TASK-013.md)
+  - [X] [TASK-013 — Set up path-based CI in GitHub Actions](./epic-01/TASK-013.md)
 - #### EPIC-02. Local Infrastructure
   - [ ] [TASK-020 — Enable Docker Compose for the entire platform](./epic-02/TASK-020.md)
   - [ ] [TASK-021 — Prepare migrations and separate databases/schemas for services](./epic-02/TASK-021.md)
