@@ -1,7 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <module type="WEB_MODULE" version="4">
   <component name="NewModuleRootManager">
-    <content url="file://$MODULE_DIR$" />
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/apps/ledger-service" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/apps/merchant-api" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/apps/merchant-callback-delivery" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/apps/payment-domain" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/apps/payment-orchestrator" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/apps/provider-gateway" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/apps/reporting-projection" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/apps/webhook-ingest" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/apps/webhook-normalizer" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/apps/merchant-api/storage/app" />
+      <excludeFolder url="file://$MODULE_DIR$/apps/merchant-api/storage/framework" />
+      <excludeFolder url="file://$MODULE_DIR$/apps/merchant-api/storage/pail" />
+    </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
