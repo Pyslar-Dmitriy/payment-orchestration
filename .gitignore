@@ -2,8 +2,8 @@
 # PHP / Composer
 # ──────────────────────────────────────────────
 vendor/
-# composer.lock is committed per-service; ignore at root
-composer.lock
+# composer.lock is committed per-service; ignore only at repo root
+/composer.lock
 
 # ──────────────────────────────────────────────
 # Laravel
