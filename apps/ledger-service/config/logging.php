@@ -1,5 +1,6 @@
 <?php
 
+use Monolog\Formatter\JsonFormatter;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -67,8 +68,8 @@ return [
 
         'json' => [
             'driver' => 'monolog',
-            'handler' => \Monolog\Handler\StreamHandler::class,
-            'formatter' => \Monolog\Formatter\JsonFormatter::class,
+            'handler' => StreamHandler::class,
+            'formatter' => JsonFormatter::class,
             'with' => [
                 'stream' => 'php://stdout',
             ],
