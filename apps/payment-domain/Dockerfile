@@ -1,4 +1,4 @@
-FROM php:8.3-fpm-alpine AS base
+FROM php:8.4-fpm-alpine AS base
 
 RUN apk add --no-cache \
         git \
@@ -28,7 +28,14 @@ FROM base AS production
 
 COPY --from=build /var/www/html .
 
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+RUN mkdir -p /var/www/html/storage/app/public \
+             /var/www/html/storage/framework/cache/data \
+             /var/www/html/storage/framework/sessions \
+             /var/www/html/storage/framework/testing \
+             /var/www/html/storage/framework/views \
+             /var/www/html/storage/logs \
+             /var/www/html/bootstrap/cache \
+    && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
 EXPOSE 9000
 

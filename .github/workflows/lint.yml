@@ -13,6 +13,9 @@ on:
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       services: ${{ steps.services.outputs.result }}
     steps:
@@ -70,7 +73,7 @@ jobs:
 
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.4'
           coverage: none
 
       - name: Cache Composer dependencies

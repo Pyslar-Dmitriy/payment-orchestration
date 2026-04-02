@@ -1,0 +1,59 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # RabbitMQ — metrics exposed by the management plugin
+  - job_name: rabbitmq
+    static_configs:
+      - targets: ['rabbitmq:15692']
+
+  # Laravel services — uncomment and adjust when /metrics endpoints are added
+  # - job_name: merchant-api
+  #   static_configs:
+  #     - targets: ['nginx:8001']
+  #   metrics_path: /metrics
+
+  # - job_name: payment-domain
+  #   static_configs:
+  #     - targets: ['nginx:8002']
+  #   metrics_path: /metrics
+
+  # - job_name: payment-orchestrator
+  #   static_configs:
+  #     - targets: ['nginx:8003']
+  #   metrics_path: /metrics
+
+  # - job_name: provider-gateway
+  #   static_configs:
+  #     - targets: ['nginx:8004']
+  #   metrics_path: /metrics
+
+  # - job_name: webhook-ingest
+  #   static_configs:
+  #     - targets: ['nginx:8005']
+  #   metrics_path: /metrics
+
+  # - job_name: webhook-normalizer
+  #   static_configs:
+  #     - targets: ['nginx:8006']
+  #   metrics_path: /metrics
+
+  # - job_name: ledger-service
+  #   static_configs:
+  #     - targets: ['nginx:8007']
+  #   metrics_path: /metrics
+
+  # - job_name: merchant-callback-delivery
+  #   static_configs:
+  #     - targets: ['nginx:8008']
+  #   metrics_path: /metrics
+
+  # - job_name: reporting-projection
+  #   static_configs:
+  #     - targets: ['nginx:8009']
+  #   metrics_path: /metrics

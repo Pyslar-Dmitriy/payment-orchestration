@@ -9,7 +9,7 @@
   - [X] [TASK-012 — Configure shared packages](./epic-01/TASK-012.md)
   - [X] [TASK-013 — Set up path-based CI in GitHub Actions](./epic-01/TASK-013.md)
 - #### EPIC-02. Local Infrastructure
-  - [ ] [TASK-020 — Enable Docker Compose for the entire platform](./epic-02/TASK-020.md)
+  - [x] [TASK-020 — Enable Docker Compose for the entire platform](./epic-02/TASK-020.md)
   - [ ] [TASK-021 — Prepare migrations and separate databases/schemas for services](./epic-02/TASK-021.md)
   - [ ] [TASK-022 — Add dev commands and bootstrap scripts](./epic-02/TASK-022.md)
 - #### EPIC-03. API Contracts and Message Schemas
