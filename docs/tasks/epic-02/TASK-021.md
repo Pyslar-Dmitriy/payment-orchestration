@@ -10,10 +10,6 @@
 - reporting DB;
 - callback DB.
 
-## Artifacts
-- `infra/docker/docker-compose.yml`
-- `infra/docker/.env.example`
-
 ## Readiness Criteria
 - Each service writes only to its own database;
 - No cross-service joins;
