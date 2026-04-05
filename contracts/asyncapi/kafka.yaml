@@ -1,0 +1,1170 @@
+asyncapi: 3.0.0
+
+info:
+  title: Payment Orchestration — Kafka Event Contracts
+  version: 1.0.0
+  description: |
+    Async event contracts for all Kafka topics in the payment orchestration platform.
+
+    ## Naming convention
+
+    Topics follow the pattern `<domain>.<entity>.<version>` (e.g. `payments.lifecycle.v1`).
+    The `.v<N>` suffix is part of the topic name, not a broker feature. Breaking schema
+    changes require a new topic version and a 30-day co-existence window. See ADR-012.
+
+    ## Envelope
+
+    Every Kafka message MUST use the standard envelope schema defined in
+    `components/schemas/KafkaEnvelope`. The `schema_version` field is required on all
+    messages. Consumers MUST skip (and warn on) any message whose `schema_version` is
+    unknown to them — never crash.
+
+    ## Idempotency
+
+    `message_id` is the idempotency key. Consumers that have side effects MUST track
+    processed `message_id` values (inbox/dedup pattern — see ADR-005).
+
+    ## Tracing
+
+    `correlation_id` is propagated across all services and messages in the same
+    business transaction. `causation_id` is the `message_id` of the upstream message
+    that caused this one to be produced.
+  contact:
+    name: Platform Engineering
+  license:
+    name: Internal
+
+servers:
+  kafka-local:
+    host: kafka:9092
+    protocol: kafka
+    description: Local development broker (Docker Compose)
+  kafka-prod:
+    host: kafka.internal:9092
+    protocol: kafka
+    description: Production broker
+
+# ---------------------------------------------------------------------------
+# Channels
+# ---------------------------------------------------------------------------
+
+channels:
+
+  paymentsLifecycle:
+    address: payments.lifecycle.v1
+    description: |
+      Domain events for the full payment lifecycle.
+      Producer: payment-domain (via outbox).
+      Consumers: ledger-service, reporting-projection, merchant-callback-delivery.
+    bindings:
+      kafka:
+        topic: payments.lifecycle.v1
+        partitions: 12
+        replicas: 3
+    messages:
+      PaymentInitiated:
+        $ref: '#/components/messages/PaymentInitiated'
+      PaymentAuthorized:
+        $ref: '#/components/messages/PaymentAuthorized'
+      PaymentCaptured:
+        $ref: '#/components/messages/PaymentCaptured'
+      PaymentSettled:
+        $ref: '#/components/messages/PaymentSettled'
+      PaymentFailed:
+        $ref: '#/components/messages/PaymentFailed'
+      PaymentCancelled:
+        $ref: '#/components/messages/PaymentCancelled'
+
+  refundsLifecycle:
+    address: refunds.lifecycle.v1
+    description: |
+      Domain events for the full refund lifecycle.
+      Producer: payment-domain (via outbox).
+      Consumers: ledger-service, reporting-projection.
+    bindings:
+      kafka:
+        topic: refunds.lifecycle.v1
+        partitions: 6
+        replicas: 3
+    messages:
+      RefundRequested:
+        $ref: '#/components/messages/RefundRequested'
+      RefundProcessing:
+        $ref: '#/components/messages/RefundProcessing'
+      RefundCompleted:
+        $ref: '#/components/messages/RefundCompleted'
+      RefundFailed:
+        $ref: '#/components/messages/RefundFailed'
+
+  ledgerEntries:
+    address: ledger.entries.v1
+    description: |
+      Append-only double-entry postings from the ledger service.
+      Producer: ledger-service (via outbox).
+      Consumers: reporting-projection.
+    bindings:
+      kafka:
+        topic: ledger.entries.v1
+        partitions: 6
+        replicas: 3
+    messages:
+      LedgerEntryPosted:
+        $ref: '#/components/messages/LedgerEntryPosted'
+
+  providerWebhooksNormalized:
+    address: provider.webhooks.normalized.v1
+    description: |
+      Normalized provider webhook signals after translation from raw payloads.
+      Producer: webhook-normalizer.
+      Consumers: payment-orchestrator (Temporal signal delivery).
+    bindings:
+      kafka:
+        topic: provider.webhooks.normalized.v1
+        partitions: 12
+        replicas: 3
+    messages:
+      WebhookSignalReceived:
+        $ref: '#/components/messages/WebhookSignalReceived'
+
+  providerWebhooksUndeliverable:
+    address: provider.webhooks.undeliverable.v1
+    description: |
+      Normalized webhook signals that could not be delivered to a Temporal workflow
+      (no matching workflow, workflow already completed, or repeated timeout).
+      See TASK-094 for the undeliverable signal handling design.
+      Producer: webhook-normalizer.
+      Consumers: merchant-callback-delivery, reporting-projection.
+    bindings:
+      kafka:
+        topic: provider.webhooks.undeliverable.v1
+        partitions: 6
+        replicas: 3
+    messages:
+      WebhookSignalUndeliverable:
+        $ref: '#/components/messages/WebhookSignalUndeliverable'
+
+# ---------------------------------------------------------------------------
+# Operations
+# ---------------------------------------------------------------------------
+
+operations:
+
+  publishPaymentLifecycleEvent:
+    action: send
+    channel:
+      $ref: '#/channels/paymentsLifecycle'
+    summary: payment-domain publishes payment state transition events
+    bindings:
+      kafka:
+        groupId:
+          type: string
+          const: payment-domain-outbox
+
+  consumePaymentLifecycleEvent:
+    action: receive
+    channel:
+      $ref: '#/channels/paymentsLifecycle'
+    summary: Downstream services consume payment lifecycle events
+    bindings:
+      kafka:
+        groupId:
+          type: string
+          description: "Per-service consumer groups: ledger-service, reporting-projection, merchant-callback-delivery"
+          enum:
+            - ledger-service
+            - reporting-projection
+            - merchant-callback-delivery
+
+  publishRefundLifecycleEvent:
+    action: send
+    channel:
+      $ref: '#/channels/refundsLifecycle'
+    summary: payment-domain publishes refund state transition events
+    bindings:
+      kafka:
+        groupId:
+          type: string
+          const: payment-domain-outbox
+
+  consumeRefundLifecycleEvent:
+    action: receive
+    channel:
+      $ref: '#/channels/refundsLifecycle'
+    summary: Downstream services consume refund lifecycle events
+
+  publishLedgerEntry:
+    action: send
+    channel:
+      $ref: '#/channels/ledgerEntries'
+    summary: ledger-service publishes double-entry postings (via outbox)
+    bindings:
+      kafka:
+        groupId:
+          type: string
+          const: ledger-service-outbox
+
+  consumeLedgerEntry:
+    action: receive
+    channel:
+      $ref: '#/channels/ledgerEntries'
+    summary: reporting-projection consumes ledger entries to build financial read models
+
+  publishWebhookSignalReceived:
+    action: send
+    channel:
+      $ref: '#/channels/providerWebhooksNormalized'
+    summary: webhook-normalizer publishes normalized provider signals
+
+  consumeWebhookSignalReceived:
+    action: receive
+    channel:
+      $ref: '#/channels/providerWebhooksNormalized'
+    summary: payment-orchestrator delivers signals to Temporal workflows
+    bindings:
+      kafka:
+        groupId:
+          type: string
+          const: payment-orchestrator-signal-consumer
+
+  publishWebhookSignalUndeliverable:
+    action: send
+    channel:
+      $ref: '#/channels/providerWebhooksUndeliverable'
+    summary: webhook-normalizer publishes signals it could not route to a workflow
+
+  consumeWebhookSignalUndeliverable:
+    action: receive
+    channel:
+      $ref: '#/channels/providerWebhooksUndeliverable'
+    summary: merchant-callback-delivery and reporting-projection handle undeliverable signals
+
+# ---------------------------------------------------------------------------
+# Components
+# ---------------------------------------------------------------------------
+
+components:
+
+  # -------------------------------------------------------------------------
+  # Messages
+  # -------------------------------------------------------------------------
+
+  messages:
+
+    PaymentInitiated:
+      name: PaymentInitiated
+      title: Payment Initiated
+      summary: A new payment has been created and submitted for processing.
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/KafkaHeaders'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/KafkaEnvelope'
+          - type: object
+            properties:
+              event_type:
+                type: string
+                const: payment.initiated
+              payload:
+                $ref: '#/components/schemas/PaymentPayload'
+
+    PaymentAuthorized:
+      name: PaymentAuthorized
+      title: Payment Authorized
+      summary: The payment provider has authorized the payment.
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/KafkaHeaders'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/KafkaEnvelope'
+          - type: object
+            properties:
+              event_type:
+                type: string
+                const: payment.authorized
+              payload:
+                $ref: '#/components/schemas/PaymentPayload'
+
+    PaymentCaptured:
+      name: PaymentCaptured
+      title: Payment Captured
+      summary: Funds have been captured from the customer.
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/KafkaHeaders'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/KafkaEnvelope'
+          - type: object
+            properties:
+              event_type:
+                type: string
+                const: payment.captured
+              payload:
+                $ref: '#/components/schemas/PaymentPayload'
+
+    PaymentSettled:
+      name: PaymentSettled
+      title: Payment Settled
+      summary: The payment provider has confirmed settlement to the merchant.
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/KafkaHeaders'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/KafkaEnvelope'
+          - type: object
+            properties:
+              event_type:
+                type: string
+                const: payment.settled
+              payload:
+                $ref: '#/components/schemas/PaymentPayload'
+
+    PaymentFailed:
+      name: PaymentFailed
+      title: Payment Failed
+      summary: The payment failed at authorization, capture, or settlement.
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/KafkaHeaders'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/KafkaEnvelope'
+          - type: object
+            properties:
+              event_type:
+                type: string
+                const: payment.failed
+              payload:
+                $ref: '#/components/schemas/PaymentFailedPayload'
+
+    PaymentCancelled:
+      name: PaymentCancelled
+      title: Payment Cancelled
+      summary: The payment was cancelled before capture.
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/KafkaHeaders'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/KafkaEnvelope'
+          - type: object
+            properties:
+              event_type:
+                type: string
+                const: payment.cancelled
+              payload:
+                $ref: '#/components/schemas/PaymentCancelledPayload'
+
+    RefundRequested:
+      name: RefundRequested
+      title: Refund Requested
+      summary: A refund has been requested for a captured payment.
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/KafkaHeaders'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/KafkaEnvelope'
+          - type: object
+            properties:
+              event_type:
+                type: string
+                const: refund.requested
+              payload:
+                $ref: '#/components/schemas/RefundPayload'
+
+    RefundProcessing:
+      name: RefundProcessing
+      title: Refund Processing
+      summary: The refund has been submitted to the provider and is being processed.
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/KafkaHeaders'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/KafkaEnvelope'
+          - type: object
+            properties:
+              event_type:
+                type: string
+                const: refund.processing
+              payload:
+                $ref: '#/components/schemas/RefundPayload'
+
+    RefundCompleted:
+      name: RefundCompleted
+      title: Refund Completed
+      summary: The provider has confirmed the refund was successfully processed.
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/KafkaHeaders'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/KafkaEnvelope'
+          - type: object
+            properties:
+              event_type:
+                type: string
+                const: refund.completed
+              payload:
+                $ref: '#/components/schemas/RefundPayload'
+
+    RefundFailed:
+      name: RefundFailed
+      title: Refund Failed
+      summary: The refund was rejected or failed during provider processing.
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/KafkaHeaders'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/KafkaEnvelope'
+          - type: object
+            properties:
+              event_type:
+                type: string
+                const: refund.failed
+              payload:
+                $ref: '#/components/schemas/RefundFailedPayload'
+
+    LedgerEntryPosted:
+      name: LedgerEntryPosted
+      title: Ledger Entry Posted
+      summary: A double-entry posting has been recorded in the append-only ledger.
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/KafkaHeaders'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/KafkaEnvelope'
+          - type: object
+            properties:
+              event_type:
+                type: string
+                const: ledger.entry_posted
+              payload:
+                $ref: '#/components/schemas/LedgerEntryPostedPayload'
+
+    WebhookSignalReceived:
+      name: WebhookSignalReceived
+      title: Webhook Signal Received (Normalized)
+      summary: A raw provider webhook has been normalized into a platform signal.
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/KafkaHeaders'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/KafkaEnvelope'
+          - type: object
+            properties:
+              event_type:
+                type: string
+                const: provider.webhook_signal_received
+              payload:
+                $ref: '#/components/schemas/WebhookSignalPayload'
+
+    WebhookSignalUndeliverable:
+      name: WebhookSignalUndeliverable
+      title: Webhook Signal Undeliverable
+      summary: |
+        A normalized provider webhook signal could not be delivered to a Temporal
+        workflow. Reasons include: no matching workflow found, workflow already
+        completed or terminated, or repeated delivery timeouts.
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/KafkaHeaders'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/KafkaEnvelope'
+          - type: object
+            properties:
+              event_type:
+                type: string
+                const: provider.webhook_signal_undeliverable
+              payload:
+                $ref: '#/components/schemas/WebhookSignalUndeliverablePayload'
+
+  # -------------------------------------------------------------------------
+  # Message traits (headers applied to all Kafka messages)
+  # -------------------------------------------------------------------------
+
+  messageTraits:
+    KafkaHeaders:
+      headers:
+        type: object
+        properties:
+          correlation_id:
+            type: string
+            format: uuid
+            description: Kafka message header mirror of the envelope correlation_id for broker-level tracing.
+          source_service:
+            type: string
+            description: Kafka message header mirror of the envelope source_service.
+          event_type:
+            type: string
+            description: Kafka message header mirror of the envelope event_type. Allows consumers to filter without deserializing the body.
+
+  # -------------------------------------------------------------------------
+  # Schemas
+  # -------------------------------------------------------------------------
+
+  schemas:
+
+    # -----------------------------------------------------------------------
+    # Standard Kafka envelope (required on every Kafka message)
+    # -----------------------------------------------------------------------
+
+    KafkaEnvelope:
+      type: object
+      description: |
+        Standard envelope required on every Kafka message. All fields except
+        `causation_id` are required. Consumers MUST reject messages missing
+        required envelope fields and MUST skip (warn, not crash) on unknown
+        `schema_version` values. See ADR-012.
+      required:
+        - schema_version
+        - message_id
+        - correlation_id
+        - source_service
+        - occurred_at
+        - event_type
+        - payload
+      properties:
+        schema_version:
+          type: string
+          description: |
+            Monotonic integer version of the schema, encoded as a string.
+            Consumers check this field first. If the value is not a version they
+            know, they MUST skip the message and emit a warning log — never crash.
+          example: "1"
+          enum:
+            - "1"
+        message_id:
+          type: string
+          format: uuid
+          description: |
+            Globally unique identifier for this message. Used as the idempotency
+            key by consumers. Consumers with side effects MUST deduplicate on this
+            field (inbox/dedup pattern — see ADR-005).
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        correlation_id:
+          type: string
+          format: uuid
+          description: |
+            Propagated across all services and messages in the same business
+            transaction. Set once at the transaction boundary (e.g. merchant API
+            request) and never changed.
+          example: "7b1f4c2e-3a8d-4e9f-b1c2-d3e4f5a6b7c8"
+        causation_id:
+          type: string
+          format: uuid
+          description: |
+            The `message_id` of the upstream message (or HTTP request ID) that
+            caused this message to be produced. Omitted only at the very first
+            event in a causal chain.
+          example: "3d4e5f6a-7b8c-9d0e-1f2a-3b4c5d6e7f8a"
+        source_service:
+          type: string
+          description: The service identifier that produced this message.
+          example: payment-domain
+          enum:
+            - payment-domain
+            - ledger-service
+            - webhook-normalizer
+            - merchant-callback-delivery
+            - reporting-projection
+        occurred_at:
+          type: string
+          format: date-time
+          description: |
+            ISO-8601 UTC timestamp recording when the event occurred (not when it
+            was published). Must be timezone-aware (Z suffix or explicit offset).
+          example: "2026-04-05T14:32:00.000Z"
+        event_type:
+          type: string
+          description: |
+            Fully qualified event type identifier using dot notation.
+            Format: `<domain>.<event_name>` (e.g. `payment.initiated`).
+          example: payment.initiated
+        payload:
+          type: object
+          description: Event-specific payload. Schema varies by event_type.
+
+    # -----------------------------------------------------------------------
+    # Shared value objects
+    # -----------------------------------------------------------------------
+
+    MoneyAmount:
+      type: object
+      description: |
+        Monetary value. Always represented in minor currency units (e.g. cents for
+        USD, pence for GBP) as an integer to avoid floating-point precision issues.
+      required:
+        - value
+        - currency
+      properties:
+        value:
+          type: integer
+          minimum: 0
+          description: Amount in minor units (e.g. 9999 = $99.99 USD).
+          example: 9999
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          description: ISO-4217 three-letter currency code.
+          example: USD
+
+    # -----------------------------------------------------------------------
+    # payments.lifecycle.v1 payloads
+    # -----------------------------------------------------------------------
+
+    PaymentPayload:
+      type: object
+      description: |
+        Core payment fields shared across PaymentInitiated, PaymentAuthorized,
+        PaymentCaptured, and PaymentSettled events.
+      required:
+        - payment_id
+        - merchant_id
+        - provider_id
+        - amount
+        - status
+      properties:
+        payment_id:
+          type: string
+          format: uuid
+          description: Authoritative payment identifier owned by payment-domain.
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        merchant_id:
+          type: string
+          format: uuid
+          description: Identifier of the merchant who initiated the payment.
+          example: "f1e2d3c4-b5a6-9870-fedc-ba9876543210"
+        provider_id:
+          type: string
+          description: Identifier of the external payment provider used.
+          example: stripe
+          enum:
+            - stripe
+            - adyen
+            - braintree
+        provider_reference:
+          type: string
+          description: |
+            The provider's own transaction or charge identifier.
+            Absent on `payment.initiated` (not yet assigned by provider).
+          example: ch_3OqFgILkdIwHu7ix0v5q6j3T
+        amount:
+          $ref: '#/components/schemas/MoneyAmount'
+        status:
+          type: string
+          description: Payment status at the time this event was emitted.
+          enum:
+            - initiated
+            - authorized
+            - captured
+            - settled
+            - failed
+            - cancelled
+          example: authorized
+        idempotency_key:
+          type: string
+          description: |
+            Merchant-supplied idempotency key from the original payment request.
+            Preserved on all downstream events for end-to-end deduplication.
+          example: "order-1234-attempt-1"
+
+    PaymentFailedPayload:
+      type: object
+      description: Payload for payment.failed events. Extends core payment fields with failure details.
+      required:
+        - payment_id
+        - merchant_id
+        - provider_id
+        - amount
+        - status
+        - failure_code
+        - failure_message
+        - failed_at_stage
+      properties:
+        payment_id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        merchant_id:
+          type: string
+          format: uuid
+          example: "f1e2d3c4-b5a6-9870-fedc-ba9876543210"
+        provider_id:
+          type: string
+          enum:
+            - stripe
+            - adyen
+            - braintree
+          example: stripe
+        provider_reference:
+          type: string
+          example: ch_3OqFgILkdIwHu7ix0v5q6j3T
+        amount:
+          $ref: '#/components/schemas/MoneyAmount'
+        status:
+          type: string
+          const: failed
+        failure_code:
+          type: string
+          description: |
+            Normalized failure code (not the provider's raw code). Platform-defined
+            codes allow consumers to react without provider-specific logic.
+          example: card_declined
+          enum:
+            - card_declined
+            - insufficient_funds
+            - expired_card
+            - invalid_card
+            - do_not_honor
+            - fraud_blocked
+            - timeout
+            - provider_error
+            - unknown
+        failure_message:
+          type: string
+          description: Human-readable failure description. Do not log alongside payment_id and raw card data.
+          example: "Card was declined by the issuer."
+        failed_at_stage:
+          type: string
+          description: The stage of the payment lifecycle at which the failure occurred.
+          enum:
+            - authorization
+            - capture
+            - settlement
+          example: authorization
+        idempotency_key:
+          type: string
+          example: "order-1234-attempt-1"
+
+    PaymentCancelledPayload:
+      type: object
+      description: Payload for payment.cancelled events.
+      required:
+        - payment_id
+        - merchant_id
+        - provider_id
+        - amount
+        - status
+        - cancelled_at_stage
+      properties:
+        payment_id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        merchant_id:
+          type: string
+          format: uuid
+          example: "f1e2d3c4-b5a6-9870-fedc-ba9876543210"
+        provider_id:
+          type: string
+          enum:
+            - stripe
+            - adyen
+            - braintree
+          example: stripe
+        provider_reference:
+          type: string
+          example: ch_3OqFgILkdIwHu7ix0v5q6j3T
+        amount:
+          $ref: '#/components/schemas/MoneyAmount'
+        status:
+          type: string
+          const: cancelled
+        cancelled_at_stage:
+          type: string
+          description: The stage at which the cancellation was applied.
+          enum:
+            - before_authorization
+            - after_authorization
+          example: after_authorization
+        cancellation_reason:
+          type: string
+          description: Optional merchant- or system-supplied cancellation reason.
+          example: "Customer requested cancellation."
+        idempotency_key:
+          type: string
+          example: "order-1234-attempt-1"
+
+    # -----------------------------------------------------------------------
+    # refunds.lifecycle.v1 payloads
+    # -----------------------------------------------------------------------
+
+    RefundPayload:
+      type: object
+      description: |
+        Core refund fields shared across RefundRequested, RefundProcessing,
+        and RefundCompleted events.
+      required:
+        - refund_id
+        - payment_id
+        - merchant_id
+        - provider_id
+        - amount
+        - status
+      properties:
+        refund_id:
+          type: string
+          format: uuid
+          description: Authoritative refund identifier owned by payment-domain.
+          example: "d4c3b2a1-f6e5-0987-dcba-ef0987654321"
+        payment_id:
+          type: string
+          format: uuid
+          description: The payment being refunded.
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        merchant_id:
+          type: string
+          format: uuid
+          example: "f1e2d3c4-b5a6-9870-fedc-ba9876543210"
+        provider_id:
+          type: string
+          enum:
+            - stripe
+            - adyen
+            - braintree
+          example: stripe
+        provider_reference:
+          type: string
+          description: |
+            The provider's own refund identifier.
+            Absent on `refund.requested` (not yet assigned by provider).
+          example: re_3OqFgILkdIwHu7ix0v5q6j3T
+        amount:
+          $ref: '#/components/schemas/MoneyAmount'
+        status:
+          type: string
+          enum:
+            - requested
+            - processing
+            - completed
+            - failed
+          example: completed
+        reason:
+          type: string
+          description: Optional refund reason supplied by the merchant.
+          example: "Customer returned the item."
+
+    RefundFailedPayload:
+      type: object
+      description: Payload for refund.failed events.
+      required:
+        - refund_id
+        - payment_id
+        - merchant_id
+        - provider_id
+        - amount
+        - status
+        - failure_code
+        - failure_message
+      properties:
+        refund_id:
+          type: string
+          format: uuid
+          example: "d4c3b2a1-f6e5-0987-dcba-ef0987654321"
+        payment_id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        merchant_id:
+          type: string
+          format: uuid
+          example: "f1e2d3c4-b5a6-9870-fedc-ba9876543210"
+        provider_id:
+          type: string
+          enum:
+            - stripe
+            - adyen
+            - braintree
+          example: stripe
+        provider_reference:
+          type: string
+          example: re_3OqFgILkdIwHu7ix0v5q6j3T
+        amount:
+          $ref: '#/components/schemas/MoneyAmount'
+        status:
+          type: string
+          const: failed
+        failure_code:
+          type: string
+          example: provider_error
+          enum:
+            - already_refunded
+            - amount_exceeds_capture
+            - provider_error
+            - timeout
+            - unknown
+        failure_message:
+          type: string
+          example: "The refund amount exceeds the original captured amount."
+        reason:
+          type: string
+          example: "Customer returned the item."
+
+    # -----------------------------------------------------------------------
+    # ledger.entries.v1 payloads
+    # -----------------------------------------------------------------------
+
+    LedgerEntryPostedPayload:
+      type: object
+      description: |
+        A double-entry posting recorded in the append-only ledger.
+        Each posting has exactly one debit leg and one credit leg.
+        Amounts across legs must balance. See ADR-007.
+      required:
+        - entry_id
+        - merchant_id
+        - posting_type
+        - lines
+        - idempotency_key
+      properties:
+        entry_id:
+          type: string
+          format: uuid
+          description: Unique identifier for this ledger entry. Immutable once posted.
+          example: "c3d4e5f6-a7b8-9c0d-e1f2-a3b4c5d6e7f8"
+        payment_id:
+          type: string
+          format: uuid
+          description: The payment this entry relates to. Absent for non-payment entries.
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        refund_id:
+          type: string
+          format: uuid
+          description: The refund this entry relates to. Present only for refund postings.
+          example: "d4c3b2a1-f6e5-0987-dcba-ef0987654321"
+        merchant_id:
+          type: string
+          format: uuid
+          example: "f1e2d3c4-b5a6-9870-fedc-ba9876543210"
+        posting_type:
+          type: string
+          description: The business event that triggered this ledger entry.
+          enum:
+            - capture
+            - refund
+            - fee
+            - settlement
+            - adjustment
+          example: capture
+        lines:
+          type: array
+          description: |
+            The debit and credit legs of the double-entry posting.
+            Must contain exactly one debit and one credit, with equal amounts.
+          minItems: 2
+          maxItems: 2
+          items:
+            $ref: '#/components/schemas/LedgerLine'
+        idempotency_key:
+          type: string
+          description: |
+            Idempotency key for this posting. Consumers must deduplicate on this field
+            to prevent double-posting. Typically derived from payment_id + posting_type.
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890:capture"
+        posted_at:
+          type: string
+          format: date-time
+          description: Timestamp when the entry was recorded by the ledger service.
+          example: "2026-04-05T14:32:01.000Z"
+
+    LedgerLine:
+      type: object
+      description: A single debit or credit line within a double-entry ledger posting.
+      required:
+        - account
+        - direction
+        - amount
+      properties:
+        account:
+          type: string
+          description: |
+            Ledger account identifier using dot-notation.
+            Format: `<account_type>.<entity>.<sub_account>` (e.g. `receivable.merchant.123`).
+          example: "receivable.merchant.f1e2d3c4-b5a6-9870-fedc-ba9876543210"
+        direction:
+          type: string
+          enum:
+            - debit
+            - credit
+          example: debit
+        amount:
+          $ref: '#/components/schemas/MoneyAmount'
+
+    # -----------------------------------------------------------------------
+    # provider.webhooks.normalized.v1 payloads
+    # -----------------------------------------------------------------------
+
+    WebhookSignalPayload:
+      type: object
+      description: |
+        A normalized provider webhook signal ready for consumption by payment-orchestrator.
+        The `signal_type` maps to a Temporal signal name. All provider-specific raw data
+        has been translated to platform-standard fields before this event is published.
+      required:
+        - signal_id
+        - raw_event_id
+        - provider
+        - provider_event_id
+        - signal_type
+        - provider_reference
+        - normalized_at
+      properties:
+        signal_id:
+          type: string
+          format: uuid
+          description: Unique identifier for this normalized signal.
+          example: "e5f6a7b8-c9d0-e1f2-a3b4-c5d6e7f8a9b0"
+        raw_event_id:
+          type: string
+          format: uuid
+          description: |
+            Reference to the raw webhook payload stored by webhook-ingest.
+            Allows traceback to the original provider payload if needed.
+          example: "b8a7c6d5-e4f3-2a1b-9c8d-7e6f5a4b3c2d"
+        provider:
+          type: string
+          description: The payment provider that emitted the original webhook.
+          enum:
+            - stripe
+            - adyen
+            - braintree
+          example: stripe
+        provider_event_id:
+          type: string
+          description: The provider's own unique event identifier (for deduplication).
+          example: evt_3OqFgILkdIwHu7ix0000001
+        signal_type:
+          type: string
+          description: |
+            Platform-normalized signal type. Maps directly to a Temporal signal name
+            in the payment-orchestrator service.
+          enum:
+            - payment_authorized
+            - payment_captured
+            - payment_settled
+            - payment_failed
+            - refund_completed
+            - refund_failed
+            - dispute_opened
+            - dispute_resolved
+          example: payment_authorized
+        payment_id:
+          type: string
+          format: uuid
+          description: |
+            Platform payment identifier resolved from the provider reference.
+            Absent if resolution failed (the signal will be undeliverable).
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        provider_reference:
+          type: string
+          description: The provider's transaction identifier this signal pertains to.
+          example: ch_3OqFgILkdIwHu7ix0v5q6j3T
+        normalized_at:
+          type: string
+          format: date-time
+          description: Timestamp when webhook-normalizer produced this signal.
+          example: "2026-04-05T14:32:00.500Z"
+        signal_metadata:
+          type: object
+          description: |
+            Optional additional fields extracted from the provider payload,
+            normalized to platform types. Content varies by signal_type.
+          additionalProperties: true
+
+    # -----------------------------------------------------------------------
+    # provider.webhooks.undeliverable.v1 payloads
+    # -----------------------------------------------------------------------
+
+    WebhookSignalUndeliverablePayload:
+      type: object
+      description: |
+        Published when a normalized webhook signal could not be delivered to a
+        Temporal workflow. Downstream consumers (merchant-callback-delivery,
+        reporting-projection) use this to alert merchants and create audit records.
+        See TASK-094.
+      required:
+        - signal_id
+        - raw_event_id
+        - provider
+        - provider_event_id
+        - signal_type
+        - provider_reference
+        - failed_at
+        - failure_reason
+        - delivery_attempts
+      properties:
+        signal_id:
+          type: string
+          format: uuid
+          description: The signal_id from the normalized signal that could not be delivered.
+          example: "e5f6a7b8-c9d0-e1f2-a3b4-c5d6e7f8a9b0"
+        raw_event_id:
+          type: string
+          format: uuid
+          description: Reference to the original raw webhook payload.
+          example: "b8a7c6d5-e4f3-2a1b-9c8d-7e6f5a4b3c2d"
+        provider:
+          type: string
+          enum:
+            - stripe
+            - adyen
+            - braintree
+          example: stripe
+        provider_event_id:
+          type: string
+          example: evt_3OqFgILkdIwHu7ix0000001
+        signal_type:
+          type: string
+          enum:
+            - payment_authorized
+            - payment_captured
+            - payment_settled
+            - payment_failed
+            - refund_completed
+            - refund_failed
+            - dispute_opened
+            - dispute_resolved
+          example: payment_authorized
+        payment_id:
+          type: string
+          format: uuid
+          description: |
+            Platform payment identifier if it could be resolved from the provider
+            reference. Absent if resolution itself failed.
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        provider_reference:
+          type: string
+          example: ch_3OqFgILkdIwHu7ix0v5q6j3T
+        failed_at:
+          type: string
+          format: date-time
+          description: Timestamp of the final delivery failure.
+          example: "2026-04-05T14:35:00.000Z"
+        failure_reason:
+          type: string
+          description: Machine-readable reason for delivery failure.
+          enum:
+            - workflow_not_found
+            - workflow_already_completed
+            - workflow_terminated
+            - payment_id_unresolvable
+            - signal_delivery_timeout
+          example: workflow_not_found
+        failure_detail:
+          type: string
+          description: Optional human-readable detail from the Temporal error.
+          example: "No workflow execution found for payment_id a1b2c3d4..."
+        delivery_attempts:
+          type: integer
+          minimum: 1
+          description: Total number of delivery attempts made before giving up.
+          example: 3

@@ -1,0 +1,745 @@
+asyncapi: 3.0.0
+
+info:
+  title: Payment Orchestration — RabbitMQ Queue Contracts
+  version: 1.0.0
+  description: |
+    Async message contracts for all RabbitMQ queues in the payment orchestration platform.
+
+    ## Purpose of RabbitMQ in this platform
+
+    RabbitMQ handles **operational async work** — tasks that must be executed exactly
+    once, with retry logic and a dead-letter queue (DLQ). It is NOT used for domain
+    event streaming or replay. See ADR-003 for the RabbitMQ vs. Kafka split.
+
+    ## Queue topology
+
+    | Queue | Purpose |
+    |-------|---------|
+    | `provider.webhook.raw` | Raw provider webhook payloads enqueued by webhook-ingest for processing by webhook-normalizer |
+    | `merchant.callback.dispatch` | Outbound HTTPS callback tasks dispatched to merchant endpoints |
+    | `merchant.callback.retry.<delay>` | Per-delay retry queues (e.g. `retry.60s`, `retry.300s`, `retry.3600s`) |
+    | `merchant.callback.dlq` | Dead-letter queue for callbacks that exhausted all retry attempts |
+
+    ## Envelope
+
+    RabbitMQ messages do not use `schema_version` (that field is Kafka-specific per ADR-012).
+    All messages MUST include `message_id`, `correlation_id`, `source_service`, and
+    `enqueued_at` for traceability. `causation_id` is required on retry and DLQ messages.
+
+    ## Idempotency
+
+    `message_id` is the idempotency key for all RabbitMQ messages. Consumers with side
+    effects MUST track processed `message_id` values (inbox/dedup pattern — ADR-005).
+
+    ## Retry topology
+
+    `merchant.callback.retry.*` uses per-delay queues with RabbitMQ dead-letter exchange
+    (DLX) routing. Each retry queue has a TTL matching its delay. On TTL expiry, messages
+    are routed back to `merchant.callback.dispatch` for re-attempt. After the configured
+    maximum attempts, messages are routed to `merchant.callback.dlq`.
+  contact:
+    name: Platform Engineering
+  license:
+    name: Internal
+
+servers:
+  rabbitmq-local:
+    host: rabbitmq:5672
+    protocol: amqp
+    description: Local development broker (Docker Compose)
+  rabbitmq-prod:
+    host: rabbitmq.internal:5672
+    protocol: amqp
+    description: Production broker
+
+# ---------------------------------------------------------------------------
+# Channels
+# ---------------------------------------------------------------------------
+
+channels:
+
+  providerWebhookRaw:
+    address: provider.webhook.raw
+    description: |
+      Raw provider webhook payloads enqueued by webhook-ingest immediately after
+      signature verification and deduplication. Consumed by webhook-normalizer.
+
+      Producers: webhook-ingest
+      Consumers: webhook-normalizer
+
+      Deduplication: webhook-ingest deduplicates on (provider, provider_event_id)
+      before enqueuing. webhook-normalizer deduplicates on message_id (inbox/dedup).
+
+      Note: The queue carries a reference to the stored raw body, not the body itself,
+      to keep message sizes small and avoid double-storage.
+    bindings:
+      amqp:
+        is: queue
+        queue:
+          durable: true
+          exclusive: false
+          autoDelete: false
+    messages:
+      RawWebhookEnqueued:
+        $ref: '#/components/messages/RawWebhookEnqueued'
+
+  merchantCallbackDispatch:
+    address: merchant.callback.dispatch
+    description: |
+      Outbound HTTPS callback tasks for delivery to merchant-registered endpoints.
+      Published by merchant-callback-delivery and re-published by the retry queue
+      on TTL expiry.
+
+      Producers: merchant-callback-delivery (initial dispatch), retry queues (re-dispatch)
+      Consumers: merchant-callback-delivery (delivery worker)
+
+      On delivery failure, the worker publishes to the appropriate retry queue based
+      on the `attempt_number`. On final failure, it routes to `merchant.callback.dlq`.
+    bindings:
+      amqp:
+        is: queue
+        queue:
+          durable: true
+          exclusive: false
+          autoDelete: false
+    messages:
+      MerchantCallbackDispatch:
+        $ref: '#/components/messages/MerchantCallbackDispatch'
+
+  merchantCallbackRetry:
+    address: "merchant.callback.retry.*"
+    description: |
+      Per-delay retry queues for failed merchant callbacks. The wildcard `*` represents
+      the delay suffix: `60s`, `300s`, `3600s`, `86400s`.
+
+      Actual queue names: `merchant.callback.retry.60s`, `merchant.callback.retry.300s`,
+      `merchant.callback.retry.3600s`, `merchant.callback.retry.86400s`.
+
+      Each queue is configured with:
+      - `x-message-ttl` matching its delay in milliseconds
+      - `x-dead-letter-exchange` pointing back to `merchant.callback.dispatch`
+
+      On TTL expiry the message is re-routed to `merchant.callback.dispatch` with
+      `attempt_number` incremented. The dispatch consumer decides which retry queue
+      to use (or DLQ) based on the updated attempt_number.
+
+      Producers: merchant-callback-delivery (on delivery failure)
+      Consumers: none (RabbitMQ TTL + DLX routing only)
+    bindings:
+      amqp:
+        is: queue
+        queue:
+          durable: true
+          exclusive: false
+          autoDelete: false
+    messages:
+      MerchantCallbackRetry:
+        $ref: '#/components/messages/MerchantCallbackRetry'
+
+  merchantCallbackDlq:
+    address: merchant.callback.dlq
+    description: |
+      Dead-letter queue for merchant callbacks that exhausted all retry attempts.
+      Messages here require manual review or automated alerting.
+
+      Producers: merchant-callback-delivery (on final failure after max attempts)
+      Consumers: merchant-callback-delivery (DLQ processor — alerts merchant, records failure)
+
+      DLQ messages are never automatically re-queued. Manual re-drive requires an
+      operator action or an explicit re-drive API call.
+    bindings:
+      amqp:
+        is: queue
+        queue:
+          durable: true
+          exclusive: false
+          autoDelete: false
+    messages:
+      MerchantCallbackDeadLetter:
+        $ref: '#/components/messages/MerchantCallbackDeadLetter'
+
+# ---------------------------------------------------------------------------
+# Operations
+# ---------------------------------------------------------------------------
+
+operations:
+
+  enqueueRawWebhook:
+    action: send
+    channel:
+      $ref: '#/channels/providerWebhookRaw'
+    summary: webhook-ingest enqueues verified raw webhook references for normalization
+    bindings:
+      amqp:
+        expiration: 3600000
+
+  consumeRawWebhook:
+    action: receive
+    channel:
+      $ref: '#/channels/providerWebhookRaw'
+    summary: webhook-normalizer consumes raw webhook references and produces normalized signals
+
+  dispatchMerchantCallback:
+    action: send
+    channel:
+      $ref: '#/channels/merchantCallbackDispatch'
+    summary: merchant-callback-delivery enqueues outbound callback tasks
+
+  consumeMerchantCallbackDispatch:
+    action: receive
+    channel:
+      $ref: '#/channels/merchantCallbackDispatch'
+    summary: merchant-callback-delivery workers attempt HTTPS delivery to merchant endpoints
+
+  requeueForRetry:
+    action: send
+    channel:
+      $ref: '#/channels/merchantCallbackRetry'
+    summary: merchant-callback-delivery publishes failed callbacks to the appropriate retry delay queue
+
+  sendToDeadLetter:
+    action: send
+    channel:
+      $ref: '#/channels/merchantCallbackDlq'
+    summary: merchant-callback-delivery routes permanently failed callbacks to the DLQ
+
+  consumeDeadLetter:
+    action: receive
+    channel:
+      $ref: '#/channels/merchantCallbackDlq'
+    summary: DLQ processor alerts merchant and records the permanent failure
+
+# ---------------------------------------------------------------------------
+# Components
+# ---------------------------------------------------------------------------
+
+components:
+
+  # -------------------------------------------------------------------------
+  # Messages
+  # -------------------------------------------------------------------------
+
+  messages:
+
+    RawWebhookEnqueued:
+      name: RawWebhookEnqueued
+      title: Raw Webhook Enqueued
+      summary: |
+        Reference to a raw provider webhook payload stored by webhook-ingest.
+        Contains the storage reference and metadata needed by webhook-normalizer
+        to retrieve, validate, and translate the payload.
+      contentType: application/json
+      headers:
+        type: object
+        properties:
+          message_id:
+            type: string
+            format: uuid
+            description: AMQP message header mirror for broker-level deduplication.
+          correlation_id:
+            type: string
+            format: uuid
+      payload:
+        $ref: '#/components/schemas/RawWebhookEnqueuedPayload'
+
+    MerchantCallbackDispatch:
+      name: MerchantCallbackDispatch
+      title: Merchant Callback Dispatch
+      summary: |
+        Task message instructing merchant-callback-delivery to attempt an HTTPS
+        POST to a merchant's registered callback endpoint.
+      contentType: application/json
+      headers:
+        type: object
+        properties:
+          message_id:
+            type: string
+            format: uuid
+          correlation_id:
+            type: string
+            format: uuid
+      payload:
+        $ref: '#/components/schemas/MerchantCallbackDispatchPayload'
+
+    MerchantCallbackRetry:
+      name: MerchantCallbackRetry
+      title: Merchant Callback Retry
+      summary: |
+        A failed callback task re-queued into a delay queue pending re-attempt.
+        Structurally identical to MerchantCallbackDispatch but carries additional
+        retry context (`last_failure_reason`, `next_attempt_at`).
+      contentType: application/json
+      headers:
+        type: object
+        properties:
+          message_id:
+            type: string
+            format: uuid
+          correlation_id:
+            type: string
+            format: uuid
+      payload:
+        $ref: '#/components/schemas/MerchantCallbackRetryPayload'
+
+    MerchantCallbackDeadLetter:
+      name: MerchantCallbackDeadLetter
+      title: Merchant Callback Dead Letter
+      summary: |
+        A callback task that has exhausted all retry attempts. Requires manual
+        intervention or automated merchant alerting.
+      contentType: application/json
+      headers:
+        type: object
+        properties:
+          message_id:
+            type: string
+            format: uuid
+          correlation_id:
+            type: string
+            format: uuid
+      payload:
+        $ref: '#/components/schemas/MerchantCallbackDeadLetterPayload'
+
+  # -------------------------------------------------------------------------
+  # Schemas
+  # -------------------------------------------------------------------------
+
+  schemas:
+
+    # -----------------------------------------------------------------------
+    # Standard RabbitMQ envelope fields (embedded in each payload schema)
+    # -----------------------------------------------------------------------
+
+    RabbitMQEnvelope:
+      type: object
+      description: |
+        Standard envelope fields required on every RabbitMQ message.
+        Unlike Kafka messages, RabbitMQ messages do not carry `schema_version`
+        (see ADR-012 — envelope versioning is Kafka-specific).
+      required:
+        - message_id
+        - correlation_id
+        - source_service
+        - enqueued_at
+        - message_type
+      properties:
+        message_id:
+          type: string
+          format: uuid
+          description: |
+            Globally unique message identifier. Used as the idempotency key by
+            consumers. Consumers with side effects MUST deduplicate on this field.
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        correlation_id:
+          type: string
+          format: uuid
+          description: |
+            Propagated across all services and messages in the same business
+            transaction. Set at the transaction boundary and never changed.
+          example: "7b1f4c2e-3a8d-4e9f-b1c2-d3e4f5a6b7c8"
+        causation_id:
+          type: string
+          format: uuid
+          description: |
+            The `message_id` of the upstream message or request that caused
+            this message to be produced. Required on retry and DLQ messages;
+            optional on initial dispatch.
+          example: "3d4e5f6a-7b8c-9d0e-1f2a-3b4c5d6e7f8a"
+        source_service:
+          type: string
+          description: The service that produced this message.
+          example: webhook-ingest
+          enum:
+            - webhook-ingest
+            - merchant-callback-delivery
+        enqueued_at:
+          type: string
+          format: date-time
+          description: ISO-8601 UTC timestamp when the message was published to the queue.
+          example: "2026-04-05T14:32:00.000Z"
+        message_type:
+          type: string
+          description: Message type identifier for consumer routing and logging.
+          example: raw_webhook_enqueued
+
+    # -----------------------------------------------------------------------
+    # Shared value objects
+    # -----------------------------------------------------------------------
+
+    MoneyAmount:
+      type: object
+      description: |
+        Monetary value. Always represented in minor currency units (e.g. cents for USD)
+        as an integer to avoid floating-point precision issues.
+      required:
+        - value
+        - currency
+      properties:
+        value:
+          type: integer
+          minimum: 0
+          description: Amount in minor units (e.g. 9999 = $99.99 USD).
+          example: 9999
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          description: ISO-4217 three-letter currency code.
+          example: USD
+
+    CallbackPayload:
+      type: object
+      description: |
+        The signed callback payload delivered to the merchant's endpoint.
+        This is the full body of the HTTPS POST request to the merchant.
+      required:
+        - event_type
+        - payment_id
+        - occurred_at
+      properties:
+        event_type:
+          type: string
+          description: Platform event type that triggered this callback.
+          example: payment.captured
+        payment_id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        refund_id:
+          type: string
+          format: uuid
+          description: Present only for refund-related events.
+          example: "d4c3b2a1-f6e5-0987-dcba-ef0987654321"
+        amount:
+          $ref: '#/components/schemas/MoneyAmount'
+        status:
+          type: string
+          example: captured
+        occurred_at:
+          type: string
+          format: date-time
+          example: "2026-04-05T14:32:00.000Z"
+        idempotency_key:
+          type: string
+          description: Merchant's original idempotency key from the payment request.
+          example: "order-1234-attempt-1"
+
+    # -----------------------------------------------------------------------
+    # provider.webhook.raw payload
+    # -----------------------------------------------------------------------
+
+    RawWebhookEnqueuedPayload:
+      allOf:
+        - $ref: '#/components/schemas/RabbitMQEnvelope'
+        - type: object
+          description: |
+            Reference to a raw webhook payload stored by webhook-ingest.
+            webhook-normalizer uses `storage_ref` to retrieve the raw body for
+            normalization. The body is NOT included in the message to keep queue
+            messages small.
+          required:
+            - raw_event_id
+            - provider
+            - provider_event_id
+            - received_at
+            - storage_ref
+            - body_hash
+          properties:
+            message_type:
+              type: string
+              const: raw_webhook_enqueued
+            raw_event_id:
+              type: string
+              format: uuid
+              description: |
+                Primary key of the raw webhook record stored by webhook-ingest.
+                webhook-normalizer uses this to retrieve the full payload from storage.
+              example: "b8a7c6d5-e4f3-2a1b-9c8d-7e6f5a4b3c2d"
+            provider:
+              type: string
+              description: The payment provider that sent the webhook.
+              enum:
+                - stripe
+                - adyen
+                - braintree
+              example: stripe
+            provider_event_id:
+              type: string
+              description: |
+                The provider's own unique event identifier, extracted from the payload
+                header or body during ingest. Used for deduplication.
+              example: evt_3OqFgILkdIwHu7ix0000001
+            received_at:
+              type: string
+              format: date-time
+              description: Timestamp when webhook-ingest received the HTTP request.
+              example: "2026-04-05T14:31:59.800Z"
+            storage_ref:
+              type: string
+              description: |
+                Reference to the stored raw payload. Format depends on the storage
+                backend (database row ID or object storage key).
+              example: "webhooks/2026/04/05/b8a7c6d5-e4f3-2a1b-9c8d-7e6f5a4b3c2d"
+            body_hash:
+              type: string
+              description: |
+                SHA-256 hex digest of the raw request body. webhook-normalizer MUST
+                recompute and verify this hash after retrieval to detect storage corruption.
+              pattern: '^[a-f0-9]{64}$'
+              example: "a3f1b2c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2"
+            signature_header:
+              type: string
+              description: |
+                Raw value of the provider's signature header (e.g. `Stripe-Signature`),
+                preserved for re-verification by webhook-normalizer if needed.
+              example: "t=1712328719,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a05bd539cecc9c26ded"
+
+    # -----------------------------------------------------------------------
+    # merchant.callback.dispatch payload
+    # -----------------------------------------------------------------------
+
+    MerchantCallbackDispatchPayload:
+      allOf:
+        - $ref: '#/components/schemas/RabbitMQEnvelope'
+        - type: object
+          description: |
+            Task instructing the delivery worker to POST a signed callback to the
+            merchant's registered endpoint. Includes the full pre-serialized and
+            pre-signed callback body so the worker does not need to reconstruct it.
+          required:
+            - callback_id
+            - merchant_id
+            - payment_id
+            - endpoint_url
+            - callback_payload
+            - signature
+            - attempt_number
+            - max_attempts
+            - scheduled_at
+          properties:
+            message_type:
+              type: string
+              const: merchant_callback_dispatch
+            callback_id:
+              type: string
+              format: uuid
+              description: |
+                Unique identifier for this callback task. Stable across retries —
+                all retry messages for the same callback share this ID.
+              example: "f8e7d6c5-b4a3-2109-8765-43210fedcba9"
+            merchant_id:
+              type: string
+              format: uuid
+              example: "f1e2d3c4-b5a6-9870-fedc-ba9876543210"
+            payment_id:
+              type: string
+              format: uuid
+              example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+            endpoint_url:
+              type: string
+              format: uri
+              description: |
+                Merchant-registered HTTPS callback URL. Must be HTTPS in production.
+                The delivery worker must validate the scheme before posting.
+              example: "https://merchant.example.com/webhooks/payment"
+            callback_payload:
+              $ref: '#/components/schemas/CallbackPayload'
+            signature:
+              type: string
+              description: |
+                HMAC-SHA256 signature of the serialized `callback_payload`, encoded as
+                hex. Computed using the merchant's signing secret. The merchant uses
+                this to verify authenticity.
+              example: "3d9f2a1b4c5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1"
+            attempt_number:
+              type: integer
+              minimum: 1
+              description: Delivery attempt number. Starts at 1 for the initial dispatch.
+              example: 1
+            max_attempts:
+              type: integer
+              minimum: 1
+              description: Maximum number of delivery attempts before routing to DLQ.
+              example: 5
+            scheduled_at:
+              type: string
+              format: date-time
+              description: |
+                Earliest timestamp at which this attempt should be made.
+                For the initial dispatch this equals `enqueued_at`. For retries it is
+                the `next_attempt_at` from the retry message.
+              example: "2026-04-05T14:32:00.000Z"
+
+    # -----------------------------------------------------------------------
+    # merchant.callback.retry.* payload
+    # -----------------------------------------------------------------------
+
+    MerchantCallbackRetryPayload:
+      allOf:
+        - $ref: '#/components/schemas/RabbitMQEnvelope'
+        - type: object
+          description: |
+            A failed callback task published to a delay queue pending re-attempt.
+            Structurally identical to MerchantCallbackDispatchPayload but carries
+            additional retry context. After TTL expiry the message is re-routed
+            to `merchant.callback.dispatch` by RabbitMQ DLX.
+          required:
+            - callback_id
+            - merchant_id
+            - payment_id
+            - endpoint_url
+            - callback_payload
+            - signature
+            - attempt_number
+            - max_attempts
+            - next_attempt_at
+            - last_failure_reason
+            - retry_delay_seconds
+          properties:
+            message_type:
+              type: string
+              const: merchant_callback_retry
+            callback_id:
+              type: string
+              format: uuid
+              example: "f8e7d6c5-b4a3-2109-8765-43210fedcba9"
+            merchant_id:
+              type: string
+              format: uuid
+              example: "f1e2d3c4-b5a6-9870-fedc-ba9876543210"
+            payment_id:
+              type: string
+              format: uuid
+              example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+            endpoint_url:
+              type: string
+              format: uri
+              example: "https://merchant.example.com/webhooks/payment"
+            callback_payload:
+              $ref: '#/components/schemas/CallbackPayload'
+            signature:
+              type: string
+              example: "3d9f2a1b4c5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1"
+            attempt_number:
+              type: integer
+              minimum: 2
+              description: The attempt number that FAILED, triggering this retry message.
+              example: 2
+            max_attempts:
+              type: integer
+              minimum: 1
+              example: 5
+            next_attempt_at:
+              type: string
+              format: date-time
+              description: Earliest timestamp for the next delivery attempt (after delay expiry).
+              example: "2026-04-05T14:37:00.000Z"
+            last_failure_reason:
+              type: string
+              description: Human-readable reason for the last delivery failure.
+              example: "HTTP 503 received from merchant endpoint after 3s."
+            last_http_status:
+              type: integer
+              description: HTTP status code from the last failed delivery attempt. Absent on timeout.
+              example: 503
+            retry_delay_seconds:
+              type: integer
+              description: Delay in seconds before this message is re-routed to the dispatch queue.
+              enum:
+                - 60
+                - 300
+                - 3600
+                - 86400
+              example: 300
+
+    # -----------------------------------------------------------------------
+    # merchant.callback.dlq payload
+    # -----------------------------------------------------------------------
+
+    MerchantCallbackDeadLetterPayload:
+      allOf:
+        - $ref: '#/components/schemas/RabbitMQEnvelope'
+        - type: object
+          description: |
+            A callback that exhausted all retry attempts. The DLQ processor sends
+            an alert to the merchant and records a permanent failure event.
+            Messages in this queue require manual review or a re-drive API call.
+          required:
+            - callback_id
+            - merchant_id
+            - payment_id
+            - endpoint_url
+            - callback_payload
+            - total_attempts
+            - first_attempted_at
+            - last_attempted_at
+            - last_failure_reason
+          properties:
+            message_type:
+              type: string
+              const: merchant_callback_dead_letter
+            callback_id:
+              type: string
+              format: uuid
+              example: "f8e7d6c5-b4a3-2109-8765-43210fedcba9"
+            merchant_id:
+              type: string
+              format: uuid
+              example: "f1e2d3c4-b5a6-9870-fedc-ba9876543210"
+            payment_id:
+              type: string
+              format: uuid
+              example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+            endpoint_url:
+              type: string
+              format: uri
+              example: "https://merchant.example.com/webhooks/payment"
+            callback_payload:
+              $ref: '#/components/schemas/CallbackPayload'
+            total_attempts:
+              type: integer
+              minimum: 1
+              description: Total number of delivery attempts made (equals max_attempts).
+              example: 5
+            first_attempted_at:
+              type: string
+              format: date-time
+              description: Timestamp of the first delivery attempt.
+              example: "2026-04-05T14:32:00.000Z"
+            last_attempted_at:
+              type: string
+              format: date-time
+              description: Timestamp of the final (failed) delivery attempt.
+              example: "2026-04-06T14:32:00.000Z"
+            last_failure_reason:
+              type: string
+              description: Human-readable reason for the final delivery failure.
+              example: "HTTP 503 received from merchant endpoint after 3s."
+            last_http_status:
+              type: integer
+              description: HTTP status code from the final failed delivery attempt. Absent on timeout.
+              example: 503
+            failure_history:
+              type: array
+              description: Optional ordered list of failure reasons across all attempts.
+              items:
+                type: object
+                required:
+                  - attempt_number
+                  - attempted_at
+                  - failure_reason
+                properties:
+                  attempt_number:
+                    type: integer
+                    minimum: 1
+                    example: 1
+                  attempted_at:
+                    type: string
+                    format: date-time
+                    example: "2026-04-05T14:32:00.000Z"
+                  failure_reason:
+                    type: string
+                    example: "Connection refused."
+                  http_status:
+                    type: integer
+                    example: 503
