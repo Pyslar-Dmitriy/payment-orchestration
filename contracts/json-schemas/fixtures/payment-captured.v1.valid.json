@@ -1,0 +1,21 @@
+{
+  "schema_version": "1",
+  "message_id": "550e8400-e29b-41d4-a716-446655440003",
+  "correlation_id": "7b1f4c2e-3a8d-4e9f-b1c2-d3e4f5a6b7c8",
+  "causation_id": "550e8400-e29b-41d4-a716-446655440002",
+  "source_service": "payment-domain",
+  "occurred_at": "2026-04-05T14:32:02.000Z",
+  "event_type": "payment.captured",
+  "payload": {
+    "payment_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "merchant_id": "f1e2d3c4-b5a6-9870-fedc-ba9876543210",
+    "provider_id": "stripe",
+    "provider_reference": "ch_3OqFgILkdIwHu7ix0v5q6j3T",
+    "amount": {
+      "value": 9999,
+      "currency": "USD"
+    },
+    "status": "captured",
+    "idempotency_key": "order-1234-attempt-1"
+  }
+}

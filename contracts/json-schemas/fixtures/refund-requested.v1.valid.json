@@ -1,0 +1,21 @@
+{
+  "schema_version": "1",
+  "message_id": "550e8400-e29b-41d4-a716-446655440004",
+  "correlation_id": "9c2e6d4f-1b3a-5e7f-c8d9-e0f1a2b3c4d5",
+  "causation_id": "550e8400-e29b-41d4-a716-446655440003",
+  "source_service": "payment-domain",
+  "occurred_at": "2026-04-05T15:00:00.000Z",
+  "event_type": "refund.requested",
+  "payload": {
+    "refund_id": "d4c3b2a1-f6e5-0987-dcba-ef0987654321",
+    "payment_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "merchant_id": "f1e2d3c4-b5a6-9870-fedc-ba9876543210",
+    "provider_id": "stripe",
+    "amount": {
+      "value": 9999,
+      "currency": "USD"
+    },
+    "status": "requested",
+    "reason": "Customer returned the item."
+  }
+}

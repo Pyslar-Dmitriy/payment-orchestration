@@ -15,7 +15,7 @@
 - #### EPIC-03. API Contracts and Message Schemas
   - [x] [TASK-030 — Describe OpenAPI for Merchant API](./epic-03/TASK-030.md)
   - [x] [TASK-031 — Describe async contracts for Kafka and RabbitMQ](./epic-03/TASK-031.md)
-  - [ ] [TASK-032 — Implement JSON Schema validation for events](./epic-03/TASK-032.md)
+  - [x] [TASK-032 — Implement JSON Schema validation for events](./epic-03/TASK-032.md)
   - [ ] [TASK-033 — Define schema evolution and compatibility strategy for Kafka topics](./epic-03/TASK-033.md)
 - #### EPIC-04. Merchant API
   - [ ] [TASK-040 — Implement authentication and merchant context](./epic-04/TASK-040.md)
