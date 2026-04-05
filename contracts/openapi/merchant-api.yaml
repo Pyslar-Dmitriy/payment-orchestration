@@ -1,0 +1,741 @@
+openapi: 3.1.0
+
+info:
+  title: Payment Orchestration — Merchant API
+  version: 1.0.0
+  contact:
+    name: Platform Engineering
+    email: platform@example.com
+  description: |
+    Public HTTP API for merchants to create and query payments and refunds.
+
+    ## Authentication
+
+    All requests must include an API key as a Bearer token in the `Authorization` header.
+    Keys follow the format `pk_live_<random>` (production) or `pk_test_<random>` (sandbox).
+    The key is issued once at merchant onboarding; if lost, a new key must be generated.
+
+    ## Idempotency
+
+    `POST /v1/payments` and `POST /v1/refunds` support idempotent submission.
+    Provide a unique `Idempotency-Key` header (UUID recommended). Repeating the same key
+    within 24 hours returns the original response without creating a duplicate resource.
+
+    ## Correlation IDs
+
+    Every request may carry an `X-Correlation-ID` header. If omitted, the platform generates
+    one. The value is always echoed back in the response header and recorded in all downstream
+    logs and events. Use this to trace a request across services.
+
+    ## Asynchronous lifecycle
+
+    Payment finalisation is asynchronous. A successful `POST /v1/payments` returns status
+    `pending` or `processing`. The terminal states (`succeeded`, `failed`, `cancelled`) are
+    reached via provider webhook → workflow continuation. Poll `GET /v1/payments/{id}` or
+    wait for a merchant callback to know the final outcome.
+
+servers:
+  - url: https://api.example.com/v1
+    description: Production
+  - url: https://sandbox.example.com/v1
+    description: Sandbox
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Payments
+    description: Create and query payment intents.
+  - name: Refunds
+    description: Request and query refunds against settled payments.
+
+paths:
+  /payments:
+    post:
+      operationId: createPayment
+      summary: Create a payment
+      description: |
+        Initiates a new payment intent. The response is returned immediately with a stable
+        `id` and status `pending`. Finalisation (success or failure) occurs asynchronously
+        via provider webhook and Temporal workflow continuation.
+      tags: [Payments]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentRequest'
+            examples:
+              basic:
+                summary: Minimal payment
+                value:
+                  amount: 10000
+                  currency: USD
+                  merchant_reference: "order-7891"
+              full:
+                summary: Payment with customer and metadata
+                value:
+                  amount: 10000
+                  currency: USD
+                  merchant_reference: "order-7891"
+                  description: "Subscription renewal — Pro plan"
+                  customer:
+                    email: "alice@example.com"
+                    name: "Alice Smith"
+                  metadata:
+                    plan: "pro"
+                    period: "2026-04"
+      responses:
+        "202":
+          description: Payment accepted and queued for processing.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "422":
+          $ref: '#/components/responses/UnprocessableEntity'
+        "409":
+          description: |
+            Conflict — a different payload was submitted with the same `Idempotency-Key`.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /payments/{id}:
+    get:
+      operationId: getPayment
+      summary: Get a payment
+      description: Returns the current state of a payment, including its latest status.
+      tags: [Payments]
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        "200":
+          description: Payment found.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /refunds:
+    post:
+      operationId: createRefund
+      summary: Create a refund
+      description: |
+        Requests a refund against a settled payment. Partial refunds are supported — `amount`
+        must not exceed the remaining refundable balance of the payment. The response is
+        returned immediately with status `pending`; completion is asynchronous.
+      tags: [Refunds]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRefundRequest'
+            examples:
+              full_refund:
+                summary: Full refund
+                value:
+                  payment_id: "01930000-0000-7000-8000-000000000001"
+                  amount: 10000
+                  reason: "customer_request"
+                  merchant_reference: "refund-order-7891"
+              partial_refund:
+                summary: Partial refund
+                value:
+                  payment_id: "01930000-0000-7000-8000-000000000001"
+                  amount: 3000
+                  reason: "partial_return"
+                  merchant_reference: "refund-partial-order-7891"
+      responses:
+        "202":
+          description: Refund accepted and queued for processing.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "409":
+          description: |
+            Conflict — either a duplicate `Idempotency-Key` with a different payload, or the
+            refund amount exceeds the remaining refundable balance.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        "422":
+          $ref: '#/components/responses/UnprocessableEntity'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /refunds/{id}:
+    get:
+      operationId: getRefund
+      summary: Get a refund
+      description: Returns the current state of a refund request.
+      tags: [Refunds]
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        "200":
+          description: Refund found.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  # ---------------------------------------------------------------------------
+  # Security
+  # ---------------------------------------------------------------------------
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        API key issued at merchant onboarding. Format: `pk_live_<random>` (production)
+        or `pk_test_<random>` (sandbox). Pass as `Authorization: Bearer <key>`.
+
+  # ---------------------------------------------------------------------------
+  # Parameters
+  # ---------------------------------------------------------------------------
+  parameters:
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      description: UUID of the resource.
+      schema:
+        type: string
+        format: uuid
+        example: "01930000-0000-7000-8000-000000000001"
+
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: |
+        Client-generated unique key (UUID recommended) to make the request idempotent.
+        Responses for duplicate keys are cached for 24 hours. Submitting a different
+        payload with the same key returns HTTP 409.
+      schema:
+        type: string
+        maxLength: 255
+        example: "550e8400-e29b-41d4-a716-446655440000"
+
+    CorrelationId:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      description: |
+        Client-provided trace identifier propagated through all downstream services and logs.
+        If omitted, the platform generates a UUID. Always echoed in the response header.
+      schema:
+        type: string
+        format: uuid
+        example: "d290f1ee-6c54-4b01-90e6-d701748f0851"
+
+  # ---------------------------------------------------------------------------
+  # Headers
+  # ---------------------------------------------------------------------------
+  headers:
+    CorrelationId:
+      description: Correlation ID echoed from the request (or generated if absent).
+      schema:
+        type: string
+        format: uuid
+        example: "d290f1ee-6c54-4b01-90e6-d701748f0851"
+
+  # ---------------------------------------------------------------------------
+  # Request schemas
+  # ---------------------------------------------------------------------------
+  schemas:
+    CreatePaymentRequest:
+      type: object
+      required: [amount, currency, merchant_reference]
+      additionalProperties: false
+      properties:
+        amount:
+          type: integer
+          minimum: 1
+          description: |
+            Payment amount in the **minor unit** of the currency (e.g., cents for USD, pence
+            for GBP). Must be a positive integer.
+          example: 10000
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+          description: ISO 4217 three-letter currency code.
+          example: "USD"
+        merchant_reference:
+          type: string
+          maxLength: 255
+          description: |
+            Your own identifier for this payment (e.g., order ID). Must be unique per merchant.
+            Returned as-is in all responses and callbacks.
+          example: "order-7891"
+        description:
+          type: string
+          maxLength: 1000
+          description: Human-readable description forwarded to the payment provider where supported.
+          example: "Subscription renewal — Pro plan"
+        customer:
+          $ref: '#/components/schemas/CustomerInfo'
+        metadata:
+          $ref: '#/components/schemas/Metadata'
+
+    CreateRefundRequest:
+      type: object
+      required: [payment_id, amount]
+      additionalProperties: false
+      properties:
+        payment_id:
+          type: string
+          format: uuid
+          description: UUID of the payment to refund. The payment must be in `succeeded` status.
+          example: "01930000-0000-7000-8000-000000000001"
+        amount:
+          type: integer
+          minimum: 1
+          description: |
+            Refund amount in the minor unit of the payment's currency. May be less than the
+            original payment amount (partial refund). Must not exceed the remaining refundable
+            balance.
+          example: 10000
+        reason:
+          type: string
+          enum:
+            - customer_request
+            - duplicate
+            - fraudulent
+            - partial_return
+            - other
+          description: Machine-readable reason for the refund.
+          example: "customer_request"
+        merchant_reference:
+          type: string
+          maxLength: 255
+          description: Your own identifier for this refund. Returned as-is in all responses.
+          example: "refund-order-7891"
+        metadata:
+          $ref: '#/components/schemas/Metadata'
+
+    # ---------------------------------------------------------------------------
+    # Response schemas
+    # ---------------------------------------------------------------------------
+    Payment:
+      type: object
+      required:
+        - id
+        - merchant_id
+        - merchant_reference
+        - amount
+        - currency
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Platform-assigned payment identifier.
+          example: "01930000-0000-7000-8000-000000000001"
+        merchant_id:
+          type: string
+          format: uuid
+          description: Identifier of the authenticated merchant.
+          example: "01920000-0000-7000-8000-000000000042"
+        merchant_reference:
+          type: string
+          description: Your own identifier, echoed from the create request.
+          example: "order-7891"
+        amount:
+          type: integer
+          description: Payment amount in minor units.
+          example: 10000
+        currency:
+          type: string
+          description: ISO 4217 currency code.
+          example: "USD"
+        status:
+          $ref: '#/components/schemas/PaymentStatus'
+        provider_payment_id:
+          type: string
+          nullable: true
+          description: |
+            Opaque identifier assigned by the external payment provider once the payment
+            has been submitted. `null` until the provider acknowledges the request.
+          example: "pi_3OxcABC1234567890"
+        description:
+          type: string
+          nullable: true
+          example: "Subscription renewal — Pro plan"
+        customer:
+          $ref: '#/components/schemas/CustomerInfo'
+        metadata:
+          $ref: '#/components/schemas/Metadata'
+        created_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp (UTC) when the payment was created.
+          example: "2026-04-05T12:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp (UTC) of the last status change.
+          example: "2026-04-05T12:00:05Z"
+
+    Refund:
+      type: object
+      required:
+        - id
+        - payment_id
+        - merchant_id
+        - amount
+        - currency
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Platform-assigned refund identifier.
+          example: "01930000-0000-7000-8000-000000000099"
+        payment_id:
+          type: string
+          format: uuid
+          description: UUID of the payment this refund is against.
+          example: "01930000-0000-7000-8000-000000000001"
+        merchant_id:
+          type: string
+          format: uuid
+          description: Identifier of the authenticated merchant.
+          example: "01920000-0000-7000-8000-000000000042"
+        merchant_reference:
+          type: string
+          nullable: true
+          description: Your own identifier, echoed from the create request.
+          example: "refund-order-7891"
+        amount:
+          type: integer
+          description: Refund amount in the minor unit of the payment's currency.
+          example: 10000
+        currency:
+          type: string
+          description: ISO 4217 currency code inherited from the payment.
+          example: "USD"
+        status:
+          $ref: '#/components/schemas/RefundStatus'
+        reason:
+          type: string
+          nullable: true
+          description: Machine-readable refund reason, echoed from the create request.
+          example: "customer_request"
+        provider_refund_id:
+          type: string
+          nullable: true
+          description: |
+            Opaque identifier assigned by the external payment provider once the refund
+            has been submitted. `null` until the provider acknowledges the request.
+          example: "re_3OxcABC1234567890"
+        metadata:
+          $ref: '#/components/schemas/Metadata'
+        created_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp (UTC) when the refund was created.
+          example: "2026-04-05T12:05:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp (UTC) of the last status change.
+          example: "2026-04-05T12:05:10Z"
+
+    # ---------------------------------------------------------------------------
+    # Enumerations
+    # ---------------------------------------------------------------------------
+    PaymentStatus:
+      type: string
+      description: |
+        Current lifecycle state of the payment.
+
+        | Status            | Meaning                                                    |
+        |-------------------|------------------------------------------------------------|
+        | `pending`         | Accepted; workflow not yet started.                        |
+        | `processing`      | Submitted to provider; awaiting confirmation.              |
+        | `requires_action` | Provider requires additional merchant or customer action.  |
+        | `succeeded`       | Confirmed as captured by the provider.                     |
+        | `failed`          | Provider declined or the workflow timed out.               |
+        | `cancelled`       | Cancelled before provider submission.                      |
+      enum:
+        - pending
+        - processing
+        - requires_action
+        - succeeded
+        - failed
+        - cancelled
+      example: "pending"
+
+    RefundStatus:
+      type: string
+      description: |
+        Current lifecycle state of the refund.
+
+        | Status       | Meaning                                          |
+        |--------------|--------------------------------------------------|
+        | `pending`    | Accepted; workflow not yet started.              |
+        | `processing` | Submitted to provider; awaiting confirmation.    |
+        | `succeeded`  | Confirmed as refunded by the provider.           |
+        | `failed`     | Provider rejected the refund or workflow failed. |
+      enum:
+        - pending
+        - processing
+        - succeeded
+        - failed
+      example: "pending"
+
+    # ---------------------------------------------------------------------------
+    # Shared sub-schemas
+    # ---------------------------------------------------------------------------
+    CustomerInfo:
+      type: object
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+          description: Customer e-mail address.
+          example: "alice@example.com"
+        name:
+          type: string
+          maxLength: 255
+          description: Customer full name.
+          example: "Alice Smith"
+
+    Metadata:
+      type: object
+      additionalProperties:
+        type: string
+      maxProperties: 20
+      description: |
+        Arbitrary key-value pairs (string → string) for your own use. Stored and returned
+        as-is. Not interpreted by the platform. Maximum 20 keys; keys and values ≤ 500
+        characters each.
+      example:
+        plan: "pro"
+        period: "2026-04"
+
+    # ---------------------------------------------------------------------------
+    # Error format
+    # ---------------------------------------------------------------------------
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+
+    ErrorBody:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code.
+          example: "validation_failed"
+        message:
+          type: string
+          description: Human-readable description of the error.
+          example: "The request payload is invalid."
+        details:
+          type: array
+          description: Field-level validation errors, present only for `validation_failed`.
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+
+    ErrorDetail:
+      type: object
+      required: [field, message]
+      properties:
+        field:
+          type: string
+          description: Dot-notation path to the offending field.
+          example: "amount"
+        message:
+          type: string
+          description: Description of why this field failed validation.
+          example: "must be a positive integer"
+
+  # ---------------------------------------------------------------------------
+  # Reusable responses
+  # ---------------------------------------------------------------------------
+  responses:
+    BadRequest:
+      description: Bad request — the request body or parameters are malformed.
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: "bad_request"
+              message: "Request body could not be parsed as JSON."
+
+    Unauthorized:
+      description: |
+        Unauthorized — the `Authorization` header is missing or the API key is invalid
+        or revoked.
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: "unauthorized"
+              message: "Invalid or missing API key."
+
+    Forbidden:
+      description: |
+        Forbidden — the authenticated merchant does not own the requested resource.
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: "forbidden"
+              message: "You do not have access to this resource."
+
+    NotFound:
+      description: Not found — the resource with the given ID does not exist.
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: "not_found"
+              message: "Payment not found."
+
+    UnprocessableEntity:
+      description: |
+        Unprocessable entity — the payload is syntactically valid but fails business
+        validation (e.g., unsupported currency, negative amount).
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: "validation_failed"
+              message: "The request payload is invalid."
+              details:
+                - field: "amount"
+                  message: "must be a positive integer"
+
+    TooManyRequests:
+      description: Too many requests — rate limit exceeded.
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+        Retry-After:
+          description: Number of seconds to wait before retrying.
+          schema:
+            type: integer
+            example: 30
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: "rate_limited"
+              message: "Too many requests. Please retry after the indicated delay."
+
+    InternalServerError:
+      description: Internal server error — an unexpected condition was encountered.
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: "internal_error"
+              message: "An unexpected error occurred. Please retry or contact support."

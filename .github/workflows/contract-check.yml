@@ -27,7 +27,7 @@ jobs:
           fi
           for spec in "${specs[@]}"; do
             echo "Validating $spec"
-            spectral lint "$spec" --ruleset spectral:oas
+            spectral lint "$spec"
           done
 
   test-dependents:
