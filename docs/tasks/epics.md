@@ -11,7 +11,7 @@
 - #### EPIC-02. Local Infrastructure
   - [x] [TASK-020 — Enable Docker Compose for the entire platform](./epic-02/TASK-020.md)
   - [x] [TASK-021 — Prepare migrations and separate databases/schemas for services](./epic-02/TASK-021.md)
-  - [ ] [TASK-022 — Add dev commands and bootstrap scripts](./epic-02/TASK-022.md)
+  - [x] [TASK-022 — Add dev commands and bootstrap scripts](./epic-02/TASK-022.md)
 - #### EPIC-03. API Contracts and Message Schemas
   - [ ] [TASK-030 — Describe OpenAPI for Merchant API](./epic-03/TASK-030.md)
   - [ ] [TASK-031 — Describe async contracts for Kafka and RabbitMQ](./epic-03/TASK-031.md)
