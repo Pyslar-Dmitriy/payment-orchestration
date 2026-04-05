@@ -13,7 +13,7 @@
   - [x] [TASK-021 — Prepare migrations and separate databases/schemas for services](./epic-02/TASK-021.md)
   - [x] [TASK-022 — Add dev commands and bootstrap scripts](./epic-02/TASK-022.md)
 - #### EPIC-03. API Contracts and Message Schemas
-  - [ ] [TASK-030 — Describe OpenAPI for Merchant API](./epic-03/TASK-030.md)
+  - [x] [TASK-030 — Describe OpenAPI for Merchant API](./epic-03/TASK-030.md)
   - [ ] [TASK-031 — Describe async contracts for Kafka and RabbitMQ](./epic-03/TASK-031.md)
   - [ ] [TASK-032 — Implement JSON Schema validation for events](./epic-03/TASK-032.md)
   - [ ] [TASK-033 — Define schema evolution and compatibility strategy for Kafka topics](./epic-03/TASK-033.md)
