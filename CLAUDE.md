@@ -98,5 +98,5 @@ The key design decisions are documented in `docs/architecture/adrs/`. Read these
 
 ## Working with tasks
 Before implementing a task: read the task file in docs/tasks/.                                                                                                                                                                                                                                                   
-After completing a task: update its checkbox in docs/tasks/epics.md.                                                                                                                                                                                                                                             
+After completing a task: update its checkbox in docs/tasks/epics.md and write a result summary in the bottom of the task file.                                                                                                                                                                                                                                             
 Do not implement work from a task not listed in the current epic.

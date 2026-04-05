@@ -13,6 +13,7 @@ Microservice-based payment orchestration platform for merchants with asynchronou
 - [Scope](./docs/architecture/scope.md) [↗]
 - [Architecture decision records](docs/architecture/adrs/_index.md) [↗]
 - [Diagrams](docs/diagrams/_index.md) [↗]
+- [Contracts](./contracts/README.md) [↗]
 
 ### B2B system for merchants that:
 
