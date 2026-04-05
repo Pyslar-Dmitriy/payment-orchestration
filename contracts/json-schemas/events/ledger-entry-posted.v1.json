@@ -1,0 +1,133 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.payment-platform.internal/events/ledger-entry-posted/v1",
+  "title": "LedgerEntryPosted v1",
+  "description": "Emitted by ledger-service (via outbox) when a double-entry posting has been recorded in the append-only ledger. Published to ledger.entries.v1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "message_id",
+    "correlation_id",
+    "source_service",
+    "occurred_at",
+    "event_type",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["1"],
+      "description": "Monotonic integer version of this schema encoded as a string. Consumers MUST skip (and warn on) unknown versions."
+    },
+    "message_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Globally unique message identifier. Used as idempotency key by consumers (inbox/dedup pattern)."
+    },
+    "correlation_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Propagated across all services in the same business transaction. Set once at the transaction boundary."
+    },
+    "causation_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "message_id of the upstream message that caused this one. Omitted at the start of a causal chain."
+    },
+    "source_service": {
+      "type": "string",
+      "enum": ["ledger-service"],
+      "description": "Service that produced this message."
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp of when the event occurred (not published). Must include timezone (Z or offset)."
+    },
+    "event_type": {
+      "type": "string",
+      "const": "ledger.entry_posted",
+      "description": "Fully-qualified event type identifier."
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entry_id", "merchant_id", "posting_type", "lines", "idempotency_key"],
+      "properties": {
+        "entry_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Unique identifier for this ledger entry. Immutable once posted."
+        },
+        "payment_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "The payment this entry relates to. Absent for non-payment entries."
+        },
+        "refund_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "The refund this entry relates to. Present only for refund postings."
+        },
+        "merchant_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Identifier of the merchant this posting belongs to."
+        },
+        "posting_type": {
+          "type": "string",
+          "enum": ["capture", "refund", "fee", "settlement", "adjustment"],
+          "description": "The business event that triggered this ledger entry."
+        },
+        "lines": {
+          "type": "array",
+          "description": "Exactly one debit and one credit leg. Amounts must balance across legs.",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["account", "direction", "amount"],
+            "properties": {
+              "account": {
+                "type": "string",
+                "description": "Ledger account in dot-notation: <account_type>.<entity>.<sub_account> (e.g. receivable.merchant.<uuid>)."
+              },
+              "direction": {
+                "type": "string",
+                "enum": ["debit", "credit"]
+              },
+              "amount": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["value", "currency"],
+                "properties": {
+                  "value": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Amount in minor currency units."
+                  },
+                  "currency": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$",
+                    "description": "ISO-4217 three-letter currency code."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "idempotency_key": {
+          "type": "string",
+          "description": "Idempotency key for this posting. Consumers must deduplicate on this field. Typically <payment_id>:<posting_type>."
+        },
+        "posted_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the entry was recorded by the ledger service."
+        }
+      }
+    }
+  }
+}

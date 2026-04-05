@@ -1,0 +1,111 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.payment-platform.internal/events/refund-requested/v1",
+  "title": "RefundRequested v1",
+  "description": "Emitted by payment-domain (via outbox) when a refund has been requested for a captured payment. Published to refunds.lifecycle.v1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "message_id",
+    "correlation_id",
+    "source_service",
+    "occurred_at",
+    "event_type",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["1"],
+      "description": "Monotonic integer version of this schema encoded as a string. Consumers MUST skip (and warn on) unknown versions."
+    },
+    "message_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Globally unique message identifier. Used as idempotency key by consumers (inbox/dedup pattern)."
+    },
+    "correlation_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Propagated across all services in the same business transaction. Set once at the transaction boundary."
+    },
+    "causation_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "message_id of the upstream message that caused this one. Omitted at the start of a causal chain."
+    },
+    "source_service": {
+      "type": "string",
+      "enum": ["payment-domain"],
+      "description": "Service that produced this message."
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp of when the event occurred (not published). Must include timezone (Z or offset)."
+    },
+    "event_type": {
+      "type": "string",
+      "const": "refund.requested",
+      "description": "Fully-qualified event type identifier."
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["refund_id", "payment_id", "merchant_id", "provider_id", "amount", "status"],
+      "properties": {
+        "refund_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Authoritative refund identifier owned by payment-domain."
+        },
+        "payment_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "The payment being refunded."
+        },
+        "merchant_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Identifier of the merchant who owns the payment."
+        },
+        "provider_id": {
+          "type": "string",
+          "enum": ["stripe", "adyen", "braintree"],
+          "description": "External payment provider handling the refund."
+        },
+        "provider_reference": {
+          "type": "string",
+          "description": "Provider's own refund identifier. Absent on refund.requested (not yet assigned)."
+        },
+        "amount": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "currency"],
+          "properties": {
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Amount in minor currency units."
+            },
+            "currency": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$",
+              "description": "ISO-4217 three-letter currency code."
+            }
+          }
+        },
+        "status": {
+          "type": "string",
+          "const": "requested",
+          "description": "Refund status at the time this event was emitted."
+        },
+        "reason": {
+          "type": "string",
+          "description": "Optional refund reason supplied by the merchant."
+        }
+      }
+    }
+  }
+}

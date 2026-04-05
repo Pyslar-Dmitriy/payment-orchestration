@@ -17,10 +17,10 @@ jobs:
       - name: Install Spectral
         run: npm install --global @stoplight/spectral-cli
 
-      - name: Validate OpenAPI specs
+      - name: Validate OpenAPI/AsyncAPI specs
         run: |
           shopt -s globstar nullglob
-          specs=(contracts/**/*.{yaml,yml,json})
+          specs=(contracts/**/*.{yaml,yml})
           if [ ${#specs[@]} -eq 0 ]; then
             echo "No contract files found — skipping validation."
             exit 0
@@ -29,6 +29,33 @@ jobs:
             echo "Validating $spec"
             spectral lint "$spec"
           done
+
+  validate-json-schemas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ajv-cli and ajv-formats
+        run: npm install --global ajv-cli ajv-formats
+
+      - name: Validate event fixtures against JSON Schemas
+        run: |
+          shopt -s globstar nullglob
+          failed=0
+          for schema in contracts/json-schemas/events/*.v1.json; do
+            name=$(basename "$schema" .json)
+            fixture="contracts/json-schemas/fixtures/${name}.valid.json"
+            if [ ! -f "$fixture" ]; then
+              echo "ERROR: missing fixture for $schema (expected $fixture)"
+              failed=1
+              continue
+            fi
+            echo "Validating $fixture against $schema"
+            if ! ajv validate --spec=draft7 -c ajv-formats -s "$schema" -d "$fixture"; then
+              failed=1
+            fi
+          done
+          exit $failed
 
   test-dependents:
     runs-on: ubuntu-latest
