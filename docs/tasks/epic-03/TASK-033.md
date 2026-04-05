@@ -36,3 +36,12 @@ Ensure TASK-032's JSON Schema validation covers the `schema_version` field as a 
 - `contracts/README.md` documents the breaking/non-breaking change criteria and the co-existence policy.
 - JSON Schema validation (TASK-032) enforces `schema_version` presence.
 - The topic naming convention (`.v1`, `.v2`) is documented and applied consistently.
+
+## Result
+
+Completed 2026-04-05.
+
+- All 5 event schemas (`payment-created`, `payment-authorized`, `payment-captured`, `refund-requested`, `ledger-entry-posted`) already included `schema_version` as a required field with `enum: ["1"]` from TASK-032. No schema changes needed.
+- Created `contracts/README.md` documenting: the message envelope fields, breaking vs. non-breaking change criteria (from ADR-012), topic naming convention (`<domain>.<entity>.v<N>`), 30-day co-existence policy, consumer graceful-handling requirement (skip + warn on unknown `schema_version`), and CI validation expectations.
+- Created `.github/pull_request_template.md` with a schema evolution checklist item per §3 of this task.
+- CI (`contract-check.yml`) already enforces `schema_version` via ajv fixture validation — any fixture missing the field fails the build.
