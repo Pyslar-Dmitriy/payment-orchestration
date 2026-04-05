@@ -68,6 +68,18 @@ migrate: ## Run migrations (SERVICE=<name> for one service, omit for all)
 		done; \
 	fi
 
+.PHONY: seed
+seed: ## Run database seeders (SERVICE=<name> for one service, omit for all)
+	@if [ -n "$(SERVICE)" ]; then \
+		$(COMPOSE) exec $(SERVICE) php artisan db:seed --force; \
+	else \
+		for svc in merchant-api payment-domain payment-orchestrator provider-gateway \
+		           webhook-ingest webhook-normalizer ledger-service \
+		           merchant-callback-delivery reporting-projection; do \
+			$(COMPOSE) exec $$svc php artisan db:seed --force; \
+		done; \
+	fi
+
 .PHONY: shell
 shell: ## Open a shell in SERVICE container
 	@test -n "$(SERVICE)" || (echo "Usage: make shell SERVICE=<service-name>"; exit 1)
