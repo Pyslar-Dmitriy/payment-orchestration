@@ -92,8 +92,7 @@
             "properties": {
               "account": {
                 "type": "string",
-                "description": "Ledger account in dot-notation: <account_type>.<entity>.<sub_account>.",
-                "example": "receivable.merchant.f1e2d3c4-b5a6-9870-fedc-ba9876543210"
+                "description": "Ledger account in dot-notation: <account_type>.<entity>.<sub_account> (e.g. receivable.merchant.<uuid>)."
               },
               "direction": {
                 "type": "string",
