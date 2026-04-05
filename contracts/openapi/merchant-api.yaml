@@ -3,6 +3,9 @@ openapi: 3.1.0
 info:
   title: Payment Orchestration — Merchant API
   version: 1.0.0
+  contact:
+    name: Platform Engineering
+    email: platform@example.com
   description: |
     Public HTTP API for merchants to create and query payments and refunds.
 
