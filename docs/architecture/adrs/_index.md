@@ -23,3 +23,5 @@ Format:
 10. [ADR-010 — Compensation and rollback strategy for permanent workflow failures](ADR-010-workflow-compensation-strategy.md)
 11. [ADR-011 — Provider routing strategy and circuit breaker scope](ADR-011-provider-routing-strategy.md)
 12. [ADR-012 — Kafka schema evolution and breaking change strategy](ADR-012-kafka-schema-evolution.md)
+13. [ADR-013 — Use Form Request classes for HTTP input validation](ADR-013-use-form-request-classes-for-http-input-validation.md)
+14. [ADR-014 — Use single-action controllers](ADR-014-use-single-action-controllers.md)
