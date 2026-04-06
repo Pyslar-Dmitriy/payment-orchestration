@@ -19,14 +19,12 @@ RUN composer install --no-dev --no-scripts --no-interaction --prefer-dist --opti
 
 COPY . .
 
-RUN composer dump-autoload --optimize \
-    && php artisan config:cache \
-    && php artisan route:cache \
-    && php artisan event:cache
+RUN composer dump-autoload --optimize
 
 FROM base AS production
 
 COPY --from=build /var/www/html .
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 RUN mkdir -p /var/www/html/storage/app/public \
              /var/www/html/storage/framework/cache/data \
@@ -35,8 +33,10 @@ RUN mkdir -p /var/www/html/storage/app/public \
              /var/www/html/storage/framework/views \
              /var/www/html/storage/logs \
              /var/www/html/bootstrap/cache \
-    && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+    && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
+    && chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 9000
 
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["php-fpm"]
