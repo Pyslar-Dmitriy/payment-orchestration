@@ -18,7 +18,7 @@
   - [x] [TASK-032 — Implement JSON Schema validation for events](./epic-03/TASK-032.md)
   - [x] [TASK-033 — Define schema evolution and compatibility strategy for Kafka topics](./epic-03/TASK-033.md)
 - #### EPIC-04. Merchant API
-  - [ ] [TASK-040 — Implement authentication and merchant context](./epic-04/TASK-040.md)
+  - [x] [TASK-040 — Implement authentication and merchant context](./epic-04/TASK-040.md)
   - [ ] [TASK-041 — Implement `POST /payments`](./epic-04/TASK-041.md)
   - [ ] [TASK-042 — Implement `GET /payments/{id}`](./epic-04/TASK-042.md)
   - [ ] [TASK-043 — Implement `POST /refunds`](./epic-04/TASK-043.md)
