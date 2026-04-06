@@ -19,7 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
             // Health probes: no prefix, no session/web middleware
             Route::middleware([])->group(function (): void {
                 Route::get('/health', [HealthController::class, 'health']);
-                Route::get('/ready',  [HealthController::class, 'ready']);
+                Route::get('/ready', [HealthController::class, 'ready']);
             });
         },
     )

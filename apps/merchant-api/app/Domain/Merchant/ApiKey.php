@@ -23,7 +23,7 @@ class ApiKey extends Model
 
     protected $casts = [
         'last_used_at' => 'datetime',
-        'expires_at'   => 'datetime',
+        'expires_at' => 'datetime',
     ];
 
     public function merchant(): BelongsTo
@@ -37,7 +37,7 @@ class ApiKey extends Model
      */
     public static function generatePlaintext(): string
     {
-        return 'pk_live_' . bin2hex(random_bytes(16));
+        return 'pk_live_'.bin2hex(random_bytes(16));
     }
 
     /**

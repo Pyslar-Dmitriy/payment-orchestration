@@ -13,7 +13,7 @@ final class RotateApiKeyController
     public function __invoke(RotateApiKeyRequest $request): JsonResponse
     {
         $apiKey = $request->attributes->get('api_key');
-        $grace  = $request->has('grace_minutes') ? $request->integer('grace_minutes') : null;
+        $grace = $request->has('grace_minutes') ? $request->integer('grace_minutes') : null;
 
         $result = $this->rotateApiKey->execute($apiKey, $grace);
 

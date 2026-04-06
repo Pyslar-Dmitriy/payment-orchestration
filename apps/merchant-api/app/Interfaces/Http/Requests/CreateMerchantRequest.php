@@ -14,8 +14,8 @@ final class CreateMerchantRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name'         => ['required', 'string', 'max:255'],
-            'email'        => ['required', 'email', 'unique:merchants,email'],
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'unique:merchants,email'],
             'callback_url' => ['nullable', 'url'],
         ];
     }

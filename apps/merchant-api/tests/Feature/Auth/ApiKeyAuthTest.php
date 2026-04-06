@@ -36,7 +36,7 @@ class ApiKeyAuthTest extends TestCase
     public function test_authenticated_route_rejects_unknown_api_key(): void
     {
         $response = $this->getJson('/api/v1/merchants/me', [
-            'Authorization' => 'Bearer pk_live_' . str_repeat('0', 32),
+            'Authorization' => 'Bearer pk_live_'.str_repeat('0', 32),
         ]);
 
         $response->assertStatus(401)
@@ -82,7 +82,7 @@ class ApiKeyAuthTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonFragment([
                 'merchant_id' => $merchant->id,
-                'email'       => $merchant->email,
+                'email' => $merchant->email,
             ]);
     }
 
@@ -112,7 +112,7 @@ class ApiKeyAuthTest extends TestCase
     public function test_creating_a_merchant_returns_plaintext_api_key(): void
     {
         $response = $this->postJson('/api/v1/merchants', [
-            'name'  => 'Acme Corp',
+            'name' => 'Acme Corp',
             'email' => 'admin@acme.example',
         ]);
 
@@ -132,7 +132,7 @@ class ApiKeyAuthTest extends TestCase
     public function test_plaintext_key_is_not_stored_in_database(): void
     {
         $response = $this->postJson('/api/v1/merchants', [
-            'name'  => 'Acme Corp',
+            'name' => 'Acme Corp',
             'email' => 'admin@acme.example',
         ]);
 
@@ -149,7 +149,7 @@ class ApiKeyAuthTest extends TestCase
         Merchant::factory()->create(['email' => 'admin@acme.example']);
 
         $response = $this->postJson('/api/v1/merchants', [
-            'name'  => 'Acme Corp 2',
+            'name' => 'Acme Corp 2',
             'email' => 'admin@acme.example',
         ]);
 
@@ -159,7 +159,7 @@ class ApiKeyAuthTest extends TestCase
     public function test_returned_key_authenticates_successfully(): void
     {
         $response = $this->postJson('/api/v1/merchants', [
-            'name'  => 'Acme Corp',
+            'name' => 'Acme Corp',
             'email' => 'admin@acme.example',
         ]);
 

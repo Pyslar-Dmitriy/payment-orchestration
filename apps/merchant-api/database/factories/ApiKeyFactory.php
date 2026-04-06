@@ -19,11 +19,11 @@ class ApiKeyFactory extends Factory
 
         return [
             'merchant_id' => Merchant::factory(),
-            'key_hash'    => ApiKey::hashKey($plaintext),
-            'key_prefix'  => ApiKey::extractPrefix($plaintext),
-            'name'        => null,
+            'key_hash' => ApiKey::hashKey($plaintext),
+            'key_prefix' => ApiKey::extractPrefix($plaintext),
+            'name' => null,
             'last_used_at' => null,
-            'expires_at'  => null,
+            'expires_at' => null,
         ];
     }
 
@@ -34,7 +34,7 @@ class ApiKeyFactory extends Factory
     public function withPlaintext(string $plaintext): static
     {
         return $this->state([
-            'key_hash'   => ApiKey::hashKey($plaintext),
+            'key_hash' => ApiKey::hashKey($plaintext),
             'key_prefix' => ApiKey::extractPrefix($plaintext),
         ]);
     }

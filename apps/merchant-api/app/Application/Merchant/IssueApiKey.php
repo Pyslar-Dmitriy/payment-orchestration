@@ -19,14 +19,14 @@ final class IssueApiKey
 
         $apiKey = ApiKey::create([
             'merchant_id' => $merchant->id,
-            'key_hash'    => ApiKey::hashKey($plaintext),
-            'key_prefix'  => ApiKey::extractPrefix($plaintext),
-            'name'        => $name,
+            'key_hash' => ApiKey::hashKey($plaintext),
+            'key_prefix' => ApiKey::extractPrefix($plaintext),
+            'name' => $name,
         ]);
 
         return [
-            'id'         => $apiKey->id,
-            'key'        => $plaintext,
+            'id' => $apiKey->id,
+            'key' => $plaintext,
             'key_prefix' => $apiKey->key_prefix,
             'created_at' => $apiKey->created_at->toIso8601String(),
         ];

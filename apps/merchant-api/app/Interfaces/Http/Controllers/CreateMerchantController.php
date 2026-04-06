@@ -14,9 +14,9 @@ final class CreateMerchantController
     public function __invoke(CreateMerchantRequest $request): JsonResponse
     {
         $merchant = Merchant::create([
-            'name'         => $request->validated('name'),
-            'email'        => $request->validated('email'),
-            'status'       => 'active',
+            'name' => $request->validated('name'),
+            'email' => $request->validated('email'),
+            'status' => 'active',
             'callback_url' => $request->validated('callback_url'),
         ]);
 
@@ -24,9 +24,9 @@ final class CreateMerchantController
 
         return response()->json([
             'merchant_id' => $merchant->id,
-            'name'        => $merchant->name,
-            'email'       => $merchant->email,
-            'api_key'     => $keyResult,
+            'name' => $merchant->name,
+            'email' => $merchant->email,
+            'api_key' => $keyResult,
         ], 201);
     }
 }

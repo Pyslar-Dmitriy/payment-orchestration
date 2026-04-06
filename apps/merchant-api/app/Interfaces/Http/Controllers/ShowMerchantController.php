@@ -12,10 +12,10 @@ final class ShowMerchantController
         $merchant = $request->attributes->get('merchant');
 
         return response()->json([
-            'merchant_id'  => $merchant->id,
-            'name'         => $merchant->name,
-            'email'        => $merchant->email,
-            'status'       => $merchant->status,
+            'merchant_id' => $merchant->id,
+            'name' => $merchant->name,
+            'email' => $merchant->email,
+            'status' => $merchant->status,
             'callback_url' => $merchant->callback_url,
         ]);
     }
