@@ -1,0 +1,312 @@
+{
+  "info": {
+    "name": "Merchant API",
+    "_postman_id": "merchant-api-v1",
+    "description": "Manual test collection for the merchant-api service.\n\nWorkflow:\n1. Run **Create Merchant** — the response contains `api_key.key`.\n2. Copy that value into the collection variable `api_key`.\n3. All authenticated requests use `Bearer {{api_key}}` automatically.\n\nBase URL is controlled by the `base_url` variable (default: http://localhost:8001).\nTraffic is routed through the nginx container on port 8001 — the merchant-api php-fpm container has no directly exposed port.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8001",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "",
+      "type": "string",
+      "description": "Plaintext API key (pk_live_...). Set automatically by the Create Merchant post-response script, or paste manually."
+    }
+  ],
+  "item": [
+    {
+      "name": "Infrastructure",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Liveness probe. Returns 200 when the application boots correctly."
+          },
+          "response": []
+        },
+        {
+          "name": "Ready",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ready",
+              "host": ["{{base_url}}"],
+              "path": ["ready"]
+            },
+            "description": "Readiness probe. Returns 200 when dependencies (DB, cache) are reachable."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Merchant Onboarding",
+      "item": [
+        {
+          "name": "Create Merchant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.api_key && json.api_key.key) {",
+                  "    pm.collectionVariables.set('api_key', json.api_key.key);",
+                  "    console.log('api_key saved:', json.api_key.key);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Corp\",\n  \"email\": \"admin@acme.example\",\n  \"callback_url\": \"https://acme.example/webhooks/payments\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/merchants",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "merchants"]
+            },
+            "description": "Register a new merchant. Returns the merchant record and a one-time plaintext API key.\n\nThe post-response script automatically writes `api_key.key` into the `api_key` collection variable so subsequent authenticated requests work without manual copy-paste.\n\n**Required fields:** `name`, `email`\n**Optional fields:** `callback_url`"
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"merchant_id\": \"01HXYZ...\",\n  \"name\": \"Acme Corp\",\n  \"email\": \"admin@acme.example\",\n  \"api_key\": {\n    \"id\": \"01HABC...\",\n    \"key\": \"pk_live_a1b2c3d4...\",\n    \"key_prefix\": \"pk_live_a1b2\",\n    \"created_at\": \"2026-04-06T10:00:00Z\"\n  }\n}"
+            },
+            {
+              "name": "422 Duplicate email",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"The email has already been taken.\",\n  \"errors\": {\n    \"email\": [\"The email has already been taken.\"]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Merchant — missing required fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/merchants",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "merchants"]
+            },
+            "description": "Expect 422 with validation errors for `name` and `email`."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authenticated — Merchant",
+      "item": [
+        {
+          "name": "Show Current Merchant",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept",        "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{api_key}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/merchants/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "merchants", "me"]
+            },
+            "description": "Returns the merchant record for the authenticated API key.\n\nExpect 401 if `api_key` variable is empty or the key is expired/unknown."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"merchant_id\": \"01HXYZ...\",\n  \"name\": \"Acme Corp\",\n  \"email\": \"admin@acme.example\",\n  \"status\": \"active\",\n  \"callback_url\": \"https://acme.example/webhooks/payments\"\n}"
+            },
+            {
+              "name": "401 Missing key",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Missing API key.\"\n}"
+            },
+            {
+              "name": "401 Invalid / expired key",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Invalid or expired API key.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Show Current Merchant — no auth",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/merchants/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "merchants", "me"]
+            },
+            "description": "Omits Authorization header. Expect 401 Missing API key."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authenticated — API Key Rotation",
+      "item": [
+        {
+          "name": "Rotate API Key (immediate)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.api_key && json.api_key.key) {",
+                  "    pm.collectionVariables.set('api_key', json.api_key.key);",
+                  "    console.log('api_key rotated to:', json.api_key.key);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{api_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/api-keys/rotate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "api-keys", "rotate"]
+            },
+            "description": "Rotates the current API key. The old key is invalidated immediately (no grace period).\n\nThe post-response script updates the `api_key` collection variable with the new key automatically."
+          },
+          "response": [
+            {
+              "name": "201 Created — new key",
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"api_key\": {\n    \"id\": \"01HDEF...\",\n    \"key\": \"pk_live_e5f6g7h8...\",\n    \"key_prefix\": \"pk_live_e5f6\",\n    \"created_at\": \"2026-04-06T10:05:00Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Rotate API Key (60-min grace period)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.api_key && json.api_key.key) {",
+                  "    pm.collectionVariables.set('api_key', json.api_key.key);",
+                  "    console.log('api_key rotated (grace 60m) to:', json.api_key.key);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{api_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"grace_minutes\": 60\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/api-keys/rotate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "api-keys", "rotate"]
+            },
+            "description": "Rotates the key but keeps the old key valid for 60 minutes. Useful for rolling deployments without downtime.\n\nValid range for `grace_minutes`: 0–1440 (up to 24 hours)."
+          },
+          "response": []
+        },
+        {
+          "name": "Rotate API Key — no auth",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/api-keys/rotate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "api-keys", "rotate"]
+            },
+            "description": "Omits Authorization header. Expect 401."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

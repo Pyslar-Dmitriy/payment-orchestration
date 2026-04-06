@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\User;
+use App\Domain\Merchant\Merchant;
 
 return [
 
@@ -19,6 +19,18 @@ return [
         'guard' => env('AUTH_GUARD', 'web'),
         'passwords' => env('AUTH_PASSWORD_BROKER', 'users'),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | API Key Rotation Grace Period
+    |--------------------------------------------------------------------------
+    |
+    | Minutes the old API key remains valid after a rotation request.
+    | Set to 0 for immediate invalidation.
+    |
+    */
+
+    'key_rotation_grace_minutes' => (int) env('KEY_ROTATION_GRACE_MINUTES', 0),
 
     /*
     |--------------------------------------------------------------------------
@@ -64,7 +76,7 @@ return [
     'providers' => [
         'users' => [
             'driver' => 'eloquent',
-            'model' => env('AUTH_MODEL', User::class),
+            'model' => env('AUTH_MODEL', Merchant::class),
         ],
 
         // 'users' => [
