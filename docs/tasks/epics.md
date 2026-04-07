@@ -12,6 +12,7 @@
   - [x] [TASK-020 — Enable Docker Compose for the entire platform](./epic-02/TASK-020.md)
   - [x] [TASK-021 — Prepare migrations and separate databases/schemas for services](./epic-02/TASK-021.md)
   - [x] [TASK-022 — Add dev commands and bootstrap scripts](./epic-02/TASK-022.md)
+  - [ ] [TASK-023 — Restrict internal services to the private Docker network](./epic-02/TASK-023.md)
 - #### EPIC-03. API Contracts and Message Schemas
   - [x] [TASK-030 — Describe OpenAPI for Merchant API](./epic-03/TASK-030.md)
   - [x] [TASK-031 — Describe async contracts for Kafka and RabbitMQ](./epic-03/TASK-031.md)
@@ -19,11 +20,12 @@
   - [x] [TASK-033 — Define schema evolution and compatibility strategy for Kafka topics](./epic-03/TASK-033.md)
 - #### EPIC-04. Merchant API
   - [x] [TASK-040 — Implement authentication and merchant context](./epic-04/TASK-040.md)
-  - [ ] [TASK-041 — Implement `POST /payments`](./epic-04/TASK-041.md)
+  - [x] [TASK-041 — Implement `POST /payments`](./epic-04/TASK-041.md)
   - [ ] [TASK-042 — Implement `GET /payments/{id}`](./epic-04/TASK-042.md)
   - [ ] [TASK-043 — Implement `POST /refunds`](./epic-04/TASK-043.md)
   - [ ] [TASK-044 — Implement `GET /refunds/{id}`](./epic-04/TASK-044.md)
   - [ ] [TASK-045 — Add rate limiting and error contract](./epic-04/TASK-045.md)
+  - [ ] [TASK-046 — Review and harden the merchant-api → payment-domain communication](./epic-04/TASK-046.md)
 - #### EPIC-05. Payment Domain Service
   - [ ] [TASK-050 — Design a payment data model](./epic-05/TASK-050.md)
   - [ ] [TASK-051 — Implement Payment Aggregate and State Transitions](./epic-05/TASK-051.md)
