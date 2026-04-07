@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'payment_domain' => [
+        'base_url' => env('PAYMENT_DOMAIN_URL', 'http://payment-domain/'),
+    ],
+
 ];
