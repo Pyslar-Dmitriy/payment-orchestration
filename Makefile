@@ -1,35 +1,45 @@
 .DEFAULT_GOAL := help
 
-COMPOSE := docker compose -f infra/docker/docker-compose.yml --env-file infra/docker/.env
+COMPOSE       := docker compose -f infra/docker/docker-compose.yml --env-file infra/docker/.env
+COMPOSE_LOCAL := $(COMPOSE) -f infra/docker/docker-compose.override.yml
+COMPOSE_PROD  := $(COMPOSE)
 
 # ──────────────────────────────────────────────
 # Docker Compose
 # ──────────────────────────────────────────────
 
 .PHONY: build
-build: ## Build all service images
-	$(COMPOSE) build
+build: ## Build local dev images (with override — default)
+	$(COMPOSE_LOCAL) build
+
+.PHONY: build-prod
+build-prod: ## Build production images (no override)
+	$(COMPOSE_PROD) build
 
 .PHONY: up
-up: ## Start all services (detached)
-	$(COMPOSE) up -d
+up: ## Start all services in local dev mode (detached)
+	$(COMPOSE_LOCAL) up -d
+
+.PHONY: up-prod
+up-prod: ## Start all services in production mode (detached)
+	$(COMPOSE_PROD) up -d
 
 .PHONY: down
 down: ## Stop and remove containers
-	$(COMPOSE) down
+	$(COMPOSE_LOCAL) down
 
 .PHONY: reset
-reset: ## Destroy all volumes and restart from scratch
-	$(COMPOSE) down -v
-	$(COMPOSE) up -d
+reset: ## Destroy all volumes and restart from scratch (local dev)
+	$(COMPOSE_LOCAL) down -v
+	$(COMPOSE_LOCAL) up -d
 
 .PHONY: ps
 ps: ## Show running containers
-	$(COMPOSE) ps
+	$(COMPOSE_LOCAL) ps
 
 .PHONY: logs
 logs: ## Tail logs (SERVICE=<name> to filter)
-	$(COMPOSE) logs -f $(SERVICE)
+	$(COMPOSE_LOCAL) logs -f $(SERVICE)
 
 # ──────────────────────────────────────────────
 # Per-service commands
@@ -39,51 +49,51 @@ logs: ## Tail logs (SERVICE=<name> to filter)
 .PHONY: test
 test: ## Run PHPUnit tests for SERVICE
 	@test -n "$(SERVICE)" || (echo "Usage: make test SERVICE=<service-name>"; exit 1)
-	$(COMPOSE) exec $(SERVICE) php artisan test
+	$(COMPOSE_LOCAL) exec $(SERVICE) php artisan test
 
 .PHONY: stan
 stan: ## Run PHPStan analysis for SERVICE
 	@test -n "$(SERVICE)" || (echo "Usage: make stan SERVICE=<service-name>"; exit 1)
-	$(COMPOSE) exec $(SERVICE) ./vendor/bin/phpstan analyse
+	$(COMPOSE_LOCAL) exec $(SERVICE) ./vendor/bin/phpstan analyse
 
 .PHONY: pint
 pint: ## Run Laravel Pint code style fixer for SERVICE
 	@test -n "$(SERVICE)" || (echo "Usage: make pint SERVICE=<service-name>"; exit 1)
-	$(COMPOSE) exec $(SERVICE) ./vendor/bin/pint
+	$(COMPOSE_LOCAL) exec $(SERVICE) ./vendor/bin/pint
 
 .PHONY: tinker
 tinker: ## Open Laravel Tinker REPL for SERVICE
 	@test -n "$(SERVICE)" || (echo "Usage: make tinker SERVICE=<service-name>"; exit 1)
-	$(COMPOSE) exec $(SERVICE) php artisan tinker
+	$(COMPOSE_LOCAL) exec $(SERVICE) php artisan tinker
 
 .PHONY: migrate
 migrate: ## Run migrations (SERVICE=<name> for one service, omit for all)
 	@if [ -n "$(SERVICE)" ]; then \
-		$(COMPOSE) exec $(SERVICE) php artisan migrate --force; \
+		$(COMPOSE_LOCAL) exec $(SERVICE) php artisan migrate --force; \
 	else \
 		for svc in merchant-api payment-domain payment-orchestrator provider-gateway \
 		           webhook-ingest webhook-normalizer ledger-service \
 		           merchant-callback-delivery reporting-projection; do \
-			$(COMPOSE) exec $$svc php artisan migrate --force; \
+			$(COMPOSE_LOCAL) exec $$svc php artisan migrate --force; \
 		done; \
 	fi
 
 .PHONY: seed
 seed: ## Run database seeders (SERVICE=<name> for one service, omit for all)
 	@if [ -n "$(SERVICE)" ]; then \
-		$(COMPOSE) exec $(SERVICE) php artisan db:seed --force; \
+		$(COMPOSE_LOCAL) exec $(SERVICE) php artisan db:seed --force; \
 	else \
 		for svc in merchant-api payment-domain payment-orchestrator provider-gateway \
 		           webhook-ingest webhook-normalizer ledger-service \
 		           merchant-callback-delivery reporting-projection; do \
-			$(COMPOSE) exec $$svc php artisan db:seed --force; \
+			$(COMPOSE_LOCAL) exec $$svc php artisan db:seed --force; \
 		done; \
 	fi
 
 .PHONY: shell
 shell: ## Open a shell in SERVICE container
 	@test -n "$(SERVICE)" || (echo "Usage: make shell SERVICE=<service-name>"; exit 1)
-	$(COMPOSE) exec $(SERVICE) sh
+	$(COMPOSE_LOCAL) exec $(SERVICE) sh
 
 # ──────────────────────────────────────────────
 # Help

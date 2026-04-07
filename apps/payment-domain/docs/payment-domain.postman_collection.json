@@ -1,0 +1,187 @@
+{
+  "info": {
+    "name": "Payment Domain (internal)",
+    "_postman_id": "payment-domain-v1",
+    "description": "Manual test collection for the payment-domain service.\n\nThis is an internal service — it has no authentication layer. All requests come from merchant-api or other internal services.\n\nBase URL is controlled by the `base_url` variable (default: http://localhost:8002).\nTraffic is routed through the nginx container on port 8002 — the payment-domain php-fpm container has no directly exposed port.\n\nWorkflow:\n1. Use **Initiate Payment** to create a payment record.\n2. Copy the returned `payment_id` into the `payment_id` collection variable for use in future GET requests (TASK-042).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8002",
+      "type": "string"
+    },
+    {
+      "key": "payment_id",
+      "value": "",
+      "type": "string",
+      "description": "ULID of the last created payment. Set manually from the Initiate Payment response, or by the post-response script."
+    }
+  ],
+  "item": [
+    {
+      "name": "Infrastructure",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Liveness probe. Returns 200 when the application boots correctly."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"status\": \"ok\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Ready",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ready",
+              "host": ["{{base_url}}"],
+              "path": ["ready"]
+            },
+            "description": "Readiness probe. Returns 200 when the database connection is healthy, 503 if the database is unreachable."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"status\": \"ok\"\n}"
+            },
+            {
+              "name": "503 DB unavailable",
+              "status": "Service Unavailable",
+              "code": 503,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"status\": \"error\",\n  \"message\": \"Database unavailable.\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Initiate Payment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.payment_id) {",
+                  "    pm.collectionVariables.set('payment_id', json.payment_id);",
+                  "    console.log('payment_id saved:', json.payment_id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" },
+              { "key": "X-Correlation-ID", "value": "{{$guid}}", "description": "Propagated from merchant-api. Use a UUID." }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchant_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"amount\": 1000,\n  \"currency\": \"USD\",\n  \"external_reference\": \"order-abc-123\",\n  \"customer_reference\": \"cust-456\",\n  \"payment_method_reference\": \"pm_test_token\",\n  \"metadata\": { \"source\": \"web\" },\n  \"correlation_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "payments"]
+            },
+            "description": "Create a payment intent. Called internally by merchant-api — never called directly by merchants.\n\n**Required fields:** `merchant_id` (UUID), `amount` (integer, min 1, in minor units), `currency` (3-char ISO 4217), `external_reference`, `correlation_id` (UUID)\n**Optional fields:** `customer_reference`, `payment_method_reference`, `metadata` (object)\n\nCreates a `Payment` record (status: `initiated`), a `PaymentStatusHistory` entry, and an `OutboxEvent` for downstream consumers — all in a single DB transaction.\n\nThe post-response script saves the returned `payment_id` to the `payment_id` collection variable."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"payment_id\": \"01knhswvgnty2g61yjgpqfk2tw\",\n  \"status\": \"initiated\"\n}"
+            },
+            {
+              "name": "422 Validation error",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"The amount field is required.\",\n  \"errors\": {\n    \"amount\": [\"The amount field is required.\"],\n    \"currency\": [\"The currency field is required.\"]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Initiate Payment — missing required fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "payments"]
+            },
+            "description": "Expect 422 with validation errors for all required fields: `merchant_id`, `amount`, `currency`, `external_reference`, `correlation_id`."
+          },
+          "response": []
+        },
+        {
+          "name": "Initiate Payment — minimal (no optional fields)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" },
+              { "key": "X-Correlation-ID", "value": "{{$guid}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchant_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"amount\": 500,\n  \"currency\": \"EUR\",\n  \"external_reference\": \"order-minimal-001\",\n  \"correlation_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "payments"]
+            },
+            "description": "Initiates a payment with only the required fields. Optional fields (`customer_reference`, `payment_method_reference`, `metadata`) are omitted. Expect 201."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

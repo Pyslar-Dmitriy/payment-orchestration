@@ -21,6 +21,30 @@ COPY . .
 
 RUN composer dump-autoload --optimize
 
+FROM base AS local
+
+COPY composer.json composer.lock ./
+RUN composer install --no-interaction --prefer-dist
+
+COPY . .
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+RUN echo 'opcache.enable=0' > /usr/local/etc/php/conf.d/opcache-disable.ini \
+    && mkdir -p /var/www/html/storage/app/public \
+               /var/www/html/storage/framework/cache/data \
+               /var/www/html/storage/framework/sessions \
+               /var/www/html/storage/framework/testing \
+               /var/www/html/storage/framework/views \
+               /var/www/html/storage/logs \
+               /var/www/html/bootstrap/cache \
+    && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
+    && chmod +x /usr/local/bin/docker-entrypoint.sh
+
+EXPOSE 9000
+
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["php-fpm"]
+
 FROM base AS production
 
 COPY --from=build /var/www/html .

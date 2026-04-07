@@ -1,0 +1,110 @@
+# Local development overrides — auto-loaded by `docker compose up`.
+#
+# What this does:
+#   - Switches every Laravel service to the `local` Dockerfile target
+#     (dev composer deps, no config/route/event cache, OPcache disabled)
+#   - Bind-mounts source directories so PHP file changes are visible
+#     immediately without rebuilding or restarting the container
+#   - vendor/ is intentionally NOT mounted — it stays from the image build.
+#     Run `docker compose build <service>` only when composer.json changes.
+
+services:
+
+  merchant-api:
+    build:
+      target: local
+    volumes:
+      - ../../apps/merchant-api/app:/var/www/html/app
+      - ../../apps/merchant-api/routes:/var/www/html/routes
+      - ../../apps/merchant-api/config:/var/www/html/config
+      - ../../apps/merchant-api/database:/var/www/html/database
+      - ../../apps/merchant-api/resources:/var/www/html/resources
+      - ../../apps/merchant-api/tests:/var/www/html/tests
+
+  payment-domain:
+    build:
+      target: local
+    volumes:
+      - ../../apps/payment-domain/app:/var/www/html/app
+      - ../../apps/payment-domain/routes:/var/www/html/routes
+      - ../../apps/payment-domain/config:/var/www/html/config
+      - ../../apps/payment-domain/database:/var/www/html/database
+      - ../../apps/payment-domain/resources:/var/www/html/resources
+      - ../../apps/payment-domain/tests:/var/www/html/tests
+
+  payment-orchestrator:
+    build:
+      target: local
+    volumes:
+      - ../../apps/payment-orchestrator/app:/var/www/html/app
+      - ../../apps/payment-orchestrator/routes:/var/www/html/routes
+      - ../../apps/payment-orchestrator/config:/var/www/html/config
+      - ../../apps/payment-orchestrator/database:/var/www/html/database
+      - ../../apps/payment-orchestrator/resources:/var/www/html/resources
+      - ../../apps/payment-orchestrator/tests:/var/www/html/tests
+
+  provider-gateway:
+    build:
+      target: local
+    volumes:
+      - ../../apps/provider-gateway/app:/var/www/html/app
+      - ../../apps/provider-gateway/routes:/var/www/html/routes
+      - ../../apps/provider-gateway/config:/var/www/html/config
+      - ../../apps/provider-gateway/database:/var/www/html/database
+      - ../../apps/provider-gateway/resources:/var/www/html/resources
+      - ../../apps/provider-gateway/tests:/var/www/html/tests
+
+  webhook-ingest:
+    build:
+      target: local
+    volumes:
+      - ../../apps/webhook-ingest/app:/var/www/html/app
+      - ../../apps/webhook-ingest/routes:/var/www/html/routes
+      - ../../apps/webhook-ingest/config:/var/www/html/config
+      - ../../apps/webhook-ingest/database:/var/www/html/database
+      - ../../apps/webhook-ingest/resources:/var/www/html/resources
+      - ../../apps/webhook-ingest/tests:/var/www/html/tests
+
+  webhook-normalizer:
+    build:
+      target: local
+    volumes:
+      - ../../apps/webhook-normalizer/app:/var/www/html/app
+      - ../../apps/webhook-normalizer/routes:/var/www/html/routes
+      - ../../apps/webhook-normalizer/config:/var/www/html/config
+      - ../../apps/webhook-normalizer/database:/var/www/html/database
+      - ../../apps/webhook-normalizer/resources:/var/www/html/resources
+      - ../../apps/webhook-normalizer/tests:/var/www/html/tests
+
+  ledger-service:
+    build:
+      target: local
+    volumes:
+      - ../../apps/ledger-service/app:/var/www/html/app
+      - ../../apps/ledger-service/routes:/var/www/html/routes
+      - ../../apps/ledger-service/config:/var/www/html/config
+      - ../../apps/ledger-service/database:/var/www/html/database
+      - ../../apps/ledger-service/resources:/var/www/html/resources
+      - ../../apps/ledger-service/tests:/var/www/html/tests
+
+  merchant-callback-delivery:
+    build:
+      target: local
+    volumes:
+      - ../../apps/merchant-callback-delivery/app:/var/www/html/app
+      - ../../apps/merchant-callback-delivery/routes:/var/www/html/routes
+      - ../../apps/merchant-callback-delivery/config:/var/www/html/config
+      - ../../apps/merchant-callback-delivery/database:/var/www/html/database
+      - ../../apps/merchant-callback-delivery/resources:/var/www/html/resources
+      - ../../apps/merchant-callback-delivery/tests:/var/www/html/tests
+
+  reporting-projection:
+    build:
+      target: local
+    volumes:
+      - ../../apps/reporting-projection/app:/var/www/html/app
+      - ../../apps/reporting-projection/routes:/var/www/html/routes
+      - ../../apps/reporting-projection/config:/var/www/html/config
+      - ../../apps/reporting-projection/database:/var/www/html/database
+      - ../../apps/reporting-projection/resources:/var/www/html/resources
+      - ../../apps/reporting-projection/tests:/var/www/html/tests
