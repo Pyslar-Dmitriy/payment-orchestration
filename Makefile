@@ -49,6 +49,7 @@ logs: ## Tail logs (SERVICE=<name> to filter)
 .PHONY: test
 test: ## Run PHPUnit tests for SERVICE
 	@test -n "$(SERVICE)" || (echo "Usage: make test SERVICE=<service-name>"; exit 1)
+	$(COMPOSE_LOCAL) exec $(SERVICE) php artisan route:clear
 	$(COMPOSE_LOCAL) exec $(SERVICE) php artisan test
 
 .PHONY: stan

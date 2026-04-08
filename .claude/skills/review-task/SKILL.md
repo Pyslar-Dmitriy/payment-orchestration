@@ -71,22 +71,33 @@ Check each implementation file for:
 - Test assertions are specific — not just `assertStatus(200)` without checking the response body.
 - No test logic that would pass even if the feature were broken (e.g. asserting on a value you just hardcoded into the fixture).
 
-## Step 6 — Check Postman collection
+## Step 6 — Check Postman collections
 
-If HTTP endpoints were added or changed:
-- Confirm the collection at `apps/<service-name>/docs/<service-name>.postman_collection.json` has been updated.
-- Verify request entries match the actual URL, method, headers, and body the code expects.
-- Verify example response bodies match the actual response shapes returned by the code.
+If HTTP endpoints were added or changed, check **every affected service** — both public-facing (e.g. merchant-api) and internal (e.g. payment-domain). Each service has its own collection at `apps/<service-name>/docs/<service-name>.postman_collection.json`.
 
-## Step 7 — Run Laravel Pint
+For each collection:
+- Confirm a request entry exists for the new/changed endpoint.
+- Verify the URL, method, headers, and body match what the code actually expects.
+- Verify example response bodies match the actual shapes returned by the code.
+- Confirm any new path/query variables are declared in the collection `variable` array.
 
-Run the code style fixer for every affected service:
+## Step 7 — Run Laravel Pint and tests
+
+Run the code style fixer for every affected service via Docker (do NOT run it directly on the host — Pint must execute inside the container where the correct PHP version and vendor dependencies are available):
 
 ```bash
-cd apps/<service-name> && ./vendor/bin/pint
+docker compose -f infra/docker/docker-compose.yml --env-file infra/docker/.env \
+  -f infra/docker/docker-compose.override.yml \
+  exec <service-name> ./vendor/bin/pint
 ```
 
 If Pint makes changes, report exactly which files were reformatted. These changes must be committed alongside the implementation.
+
+Re-run the test suite after Pint to confirm formatting changes did not break anything. Use the Makefile target from the repo root (it clears the route cache first, which is required — running `php artisan test` directly inside the container without clearing cache can produce false 404s for newly added routes):
+
+```bash
+make test SERVICE=<service-name>
+```
 
 ## Step 8 — Report findings
 

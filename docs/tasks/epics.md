@@ -22,7 +22,7 @@
   - [x] [TASK-040 — Implement authentication and merchant context](./epic-04/TASK-040.md)
   - [x] [TASK-041 — Implement `POST /payments`](./epic-04/TASK-041.md)
   - [x] [TASK-042 — Implement `GET /payments/{id}`](./epic-04/TASK-042.md)
-  - [ ] [TASK-043 — Implement `POST /refunds`](./epic-04/TASK-043.md)
+  - [x] [TASK-043 — Implement `POST /refunds`](./epic-04/TASK-043.md)
   - [ ] [TASK-044 — Implement `GET /refunds/{id}`](./epic-04/TASK-044.md)
   - [ ] [TASK-045 — Add rate limiting and error contract](./epic-04/TASK-045.md)
   - [ ] [TASK-046 — Review and harden the merchant-api → payment-domain communication](./epic-04/TASK-046.md)
