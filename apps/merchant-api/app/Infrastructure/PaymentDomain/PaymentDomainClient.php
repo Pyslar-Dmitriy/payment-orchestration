@@ -70,6 +70,38 @@ final class PaymentDomainClient
 
     /**
      * @return array{
+     *   refund_id: string,
+     *   payment_id: string,
+     *   status: string,
+     *   amount: int,
+     *   currency: string,
+     *   correlation_id: string,
+     *   created_at: string,
+     *   updated_at: string,
+     * }|null
+     *
+     * @throws RequestException
+     */
+    public function getRefund(string $refundId, string $merchantId, string $correlationId): ?array
+    {
+        $response = Http::withHeaders([
+            'X-Correlation-ID' => $correlationId,
+            'Accept' => 'application/json',
+        ])->get("{$this->baseUrl}/api/v1/refunds/{$refundId}", [
+            'merchant_id' => $merchantId,
+        ]);
+
+        if ($response->notFound()) {
+            return null;
+        }
+
+        $response->throw();
+
+        return $response->json();
+    }
+
+    /**
+     * @return array{
      *   payment_id: string,
      *   status: string,
      *   amount: int,
