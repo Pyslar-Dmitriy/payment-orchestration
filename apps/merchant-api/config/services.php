@@ -39,4 +39,8 @@ return [
         'base_url' => env('PAYMENT_DOMAIN_URL', 'http://payment-domain/'),
     ],
 
+    'rate_limit' => [
+        'per_minute' => env('RATE_LIMIT_PER_MINUTE', 60),
+    ],
+
 ];

@@ -24,7 +24,7 @@ Route::prefix('v1')->group(function (): void {
     /*
     | Authenticated merchant routes
     */
-    Route::middleware('auth.api')->group(function (): void {
+    Route::middleware(['auth.api', 'throttle:api'])->group(function (): void {
         Route::get('/merchants/me', ShowMerchantController::class);
 
         Route::post('/api-keys/rotate', RotateApiKeyController::class);

@@ -273,6 +273,14 @@
               "header": [{ "key": "Content-Type", "value": "application/json" }],
               "_postman_previewlanguage": "json",
               "body": "{\n  \"message\": \"Missing API key.\"\n}"
+            },
+            {
+              "name": "429 Rate limit exceeded",
+              "status": "Too Many Requests",
+              "code": 429,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Too many requests.\",\n  \"retry_after\": 42\n}"
             }
           ]
         },
