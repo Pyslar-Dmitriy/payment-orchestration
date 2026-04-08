@@ -18,15 +18,17 @@ COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-interaction --prefer-dist --optimize-autoloader
 
 COPY . .
+RUN composer dump-autoload --optimize
 
 RUN composer dump-autoload --optimize
 
 FROM base AS local
 
 COPY composer.json composer.lock ./
-RUN composer install --no-interaction --prefer-dist
+RUN composer install --no-scripts --no-interaction --prefer-dist
 
 COPY . .
+RUN composer dump-autoload --optimize
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 RUN echo 'opcache.enable=0' > /usr/local/etc/php/conf.d/opcache-disable.ini \
