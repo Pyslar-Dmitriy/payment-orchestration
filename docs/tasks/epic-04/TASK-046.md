@@ -26,6 +26,11 @@ If payment-domain is down, `POST /payments` returns 5xx. The merchant has no pay
 
 **Long-term consideration**: evaluate whether payment creation should be async (merchant-api enqueues a command to RabbitMQ, payment-domain consumes it, merchant polls `GET /payments/{id}` or receives a callback). This is a larger design change and should be decided in the context of EPIC-05/EPIC-06 work, but the synchronous path should at minimum be hardened with the fixes above.
 
+#### 6. payment-domain endpoints are unauthenticated
+`POST /api/v1/payments`, `GET /api/v1/payments/{id}`, and `POST /api/v1/refunds` in payment-domain have no authentication or caller-identity check. They are only protected by Docker network isolation (payment-domain is not exposed on a public port). Any service inside the private network can call them directly, bypassing merchant-api entirely — including the merchant_id scoping that prevents cross-merchant data access.
+
+**Fix**: add a shared-secret or mTLS check so payment-domain only accepts requests from merchant-api. A simple approach: require an `X-Internal-Secret` header (shared via Docker secrets / env vars) and reject anything that doesn't match. A more robust approach: mTLS between services (fits with a future Kubernetes/service-mesh setup from EPIC-20).
+
 #### 5. No structured error mapping
 `PaymentDomainClient` does not currently map payment-domain HTTP error responses (422, 409, 500) to distinct merchant-facing error codes. A validation error inside payment-domain surfaces as a generic 500 to the merchant.
 

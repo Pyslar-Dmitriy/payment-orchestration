@@ -68,11 +68,12 @@ Every implementation must be covered by tests. No exceptions.
   - Idempotency / duplicate requests where applicable
   - Boundary values (empty strings, zero amounts, max-length fields)
 - Tests must be deterministic — no reliance on wall-clock time or random data without seeding/mocking.
-- Run the test suite for the affected service(s) before declaring done:
+- Run the test suite for the affected service(s) before declaring done using the Makefile target from the repo root:
   ```bash
-  # From apps/<service-name>/
-  php artisan test
+  make test SERVICE=<service-name>
   ```
+  This clears the route cache before running PHPUnit, which is required because the Docker containers cache routes at startup. Running `php artisan test` directly inside the container without clearing the cache first can produce false 404s for newly added routes.
+
   All tests must pass. Fix failures before moving on.
 
 ## Step 5 — Update Postman collection
