@@ -6,8 +6,10 @@ use App\Interfaces\Http\Controllers\HealthController;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -28,6 +30,21 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias(['auth.api' => AuthenticateApiKey::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->render(function (ThrottleRequestsException $e, Request $request): JsonResponse {
+            $retryAfter = (int) ($e->getHeaders()['Retry-After'] ?? 60);
+
+            Log::warning('Rate limit exceeded.', [
+                'method' => $request->method(),
+                'path' => $request->path(),
+                'retry_after' => $retryAfter,
+            ]);
+
+            return response()->json([
+                'message' => 'Too many requests.',
+                'retry_after' => $retryAfter,
+            ], 429);
+        });
+
         $exceptions->render(function (NotFoundHttpException $e, Request $request): JsonResponse {
             return response()->json(['message' => 'Not found.'], 404);
         });

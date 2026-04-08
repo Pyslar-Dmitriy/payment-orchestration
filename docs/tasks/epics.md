@@ -24,7 +24,7 @@
   - [x] [TASK-042 — Implement `GET /payments/{id}`](./epic-04/TASK-042.md)
   - [x] [TASK-043 — Implement `POST /refunds`](./epic-04/TASK-043.md)
   - [x] [TASK-044 — Implement `GET /refunds/{id}`](./epic-04/TASK-044.md)
-  - [ ] [TASK-045 — Add rate limiting and error contract](./epic-04/TASK-045.md)
+  - [x] [TASK-045 — Add rate limiting and error contract](./epic-04/TASK-045.md)
   - [ ] [TASK-046 — Review and harden the merchant-api → payment-domain communication](./epic-04/TASK-046.md)
 - #### EPIC-05. Payment Domain Service
   - [ ] [TASK-050 — Design a payment data model](./epic-05/TASK-050.md)
