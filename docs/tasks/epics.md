@@ -21,7 +21,7 @@
 - #### EPIC-04. Merchant API
   - [x] [TASK-040 — Implement authentication and merchant context](./epic-04/TASK-040.md)
   - [x] [TASK-041 — Implement `POST /payments`](./epic-04/TASK-041.md)
-  - [ ] [TASK-042 — Implement `GET /payments/{id}`](./epic-04/TASK-042.md)
+  - [x] [TASK-042 — Implement `GET /payments/{id}`](./epic-04/TASK-042.md)
   - [ ] [TASK-043 — Implement `POST /refunds`](./epic-04/TASK-043.md)
   - [ ] [TASK-044 — Implement `GET /refunds/{id}`](./epic-04/TASK-044.md)
   - [ ] [TASK-045 — Add rate limiting and error contract](./epic-04/TASK-045.md)

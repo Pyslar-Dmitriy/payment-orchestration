@@ -4,6 +4,7 @@ use App\Interfaces\Http\Controllers\CreateMerchantController;
 use App\Interfaces\Http\Controllers\InitiatePaymentController;
 use App\Interfaces\Http\Controllers\RotateApiKeyController;
 use App\Interfaces\Http\Controllers\ShowMerchantController;
+use App\Interfaces\Http\Controllers\ShowPaymentController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -23,7 +24,10 @@ Route::prefix('v1')->group(function (): void {
     */
     Route::middleware('auth.api')->group(function (): void {
         Route::get('/merchants/me', ShowMerchantController::class);
+
         Route::post('/api-keys/rotate', RotateApiKeyController::class);
+
         Route::post('/payments', InitiatePaymentController::class);
+        Route::get('/payments/{id}', ShowPaymentController::class);
     });
 });

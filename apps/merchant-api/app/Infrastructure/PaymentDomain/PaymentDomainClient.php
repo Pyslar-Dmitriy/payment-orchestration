@@ -40,4 +40,36 @@ final class PaymentDomainClient
 
         return $response->json();
     }
+
+    /**
+     * @return array{
+     *   payment_id: string,
+     *   status: string,
+     *   amount: int,
+     *   currency: string,
+     *   provider_reference: string|null,
+     *   failure_reason: string|null,
+     *   created_at: string,
+     *   updated_at: string,
+     * }|null
+     *
+     * @throws RequestException
+     */
+    public function getPayment(string $paymentId, string $merchantId, string $correlationId): ?array
+    {
+        $response = Http::withHeaders([
+            'X-Correlation-ID' => $correlationId,
+            'Accept' => 'application/json',
+        ])->get("{$this->baseUrl}/api/v1/payments/{$paymentId}", [
+            'merchant_id' => $merchantId,
+        ]);
+
+        if ($response->notFound()) {
+            return null;
+        }
+
+        $response->throw();
+
+        return $response->json();
+    }
 }
