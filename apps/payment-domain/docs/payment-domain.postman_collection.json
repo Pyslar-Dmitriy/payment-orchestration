@@ -359,6 +359,70 @@
           "response": []
         },
         {
+          "name": "Get Refund",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept",           "value": "application/json" },
+              { "key": "X-Correlation-ID", "value": "{{$guid}}", "description": "Propagated from merchant-api." }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/refunds/{{refund_id}}?merchant_id=550e8400-e29b-41d4-a716-446655440000",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "refunds", "{{refund_id}}"],
+              "query": [
+                {
+                  "key": "merchant_id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Scopes the lookup to this merchant. Returns 404 if the refund belongs to a different merchant."
+                }
+              ]
+            },
+            "description": "Fetch the current state of a single refund. Called internally by merchant-api — never called directly by merchants.\n\n**Path param:** `{id}` — refund ULID (use the `refund_id` collection variable set by Initiate Refund).\n**Query param:** `merchant_id` — required for isolation; returns 404 if the refund does not belong to this merchant.\n\n**Response fields:** `refund_id`, `payment_id`, `status`, `amount`, `currency`, `correlation_id`, `created_at`, `updated_at`."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"refund_id\": \"01href000000000000000000000\",\n  \"payment_id\": \"01knhswvgnty2g61yjgpqfk2tw\",\n  \"status\": \"pending\",\n  \"amount\": 1000,\n  \"currency\": \"USD\",\n  \"correlation_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\",\n  \"created_at\": \"2026-04-08T10:00:00+00:00\",\n  \"updated_at\": \"2026-04-08T10:00:00+00:00\"\n}"
+            },
+            {
+              "name": "404 Not found / wrong merchant",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Refund not found.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Refund — not found",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept",           "value": "application/json" },
+              { "key": "X-Correlation-ID", "value": "{{$guid}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/refunds/00000000000000000000000000?merchant_id=550e8400-e29b-41d4-a716-446655440000",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "refunds", "00000000000000000000000000"],
+              "query": [
+                {
+                  "key": "merchant_id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000"
+                }
+              ]
+            },
+            "description": "Uses a non-existent refund ID. Expect 404."
+          },
+          "response": []
+        },
+        {
           "name": "Initiate Refund — payment not found",
           "request": {
             "method": "POST",
