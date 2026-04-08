@@ -22,6 +22,12 @@
       "value": "",
       "type": "string",
       "description": "Payment ID returned by Initiate Payment. Set automatically by the post-response script."
+    },
+    {
+      "key": "refund_id",
+      "value": "",
+      "type": "string",
+      "description": "Refund ID returned by Initiate Refund. Set automatically by the post-response script."
     }
   ],
   "item": [
@@ -411,6 +417,170 @@
               "raw": "{{base_url}}/api/v1/payments/{{payment_id}}",
               "host": ["{{base_url}}"],
               "path": ["api", "v1", "payments", "{{payment_id}}"]
+            },
+            "description": "Omits Authorization header. Expect 401 Missing API key."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authenticated — Refunds",
+      "item": [
+        {
+          "name": "Initiate Refund",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.refund_id) {",
+                  "    pm.collectionVariables.set('refund_id', json.refund_id);",
+                  "    console.log('refund_id saved:', json.refund_id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",    "value": "application/json" },
+              { "key": "Accept",          "value": "application/json" },
+              { "key": "Authorization",   "value": "Bearer {{api_key}}" },
+              { "key": "Idempotency-Key", "value": "refund-acme-00001", "description": "Optional. Repeat with the same value to get a cached response without creating a duplicate refund." },
+              { "key": "X-Correlation-ID","value": "local-test-001",   "description": "Optional. Propagated to payment-domain and echoed back in the response." }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_id\": \"{{payment_id}}\",\n  \"amount\": 1000\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/refunds",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "refunds"]
+            },
+            "description": "Initiates a refund for an existing captured payment.\n\n**Required fields:** `payment_id` (ULID of the payment to refund), `amount` (integer, smallest currency unit e.g. cents)\n\n**Business rules enforced by payment-domain:**\n- Payment must exist and belong to the authenticated merchant.\n- Payment status must be `captured`.\n- Refund amount must not exceed the original payment amount.\n\n**Headers:**\n- `Idempotency-Key` — repeat the same value to receive the cached 201 response without creating a duplicate refund.\n- `X-Correlation-ID` — propagated to payment-domain and echoed back in the response body.\n\nThe post-response script saves `refund_id` into the collection variable."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"refund_id\": \"01HREF...\",\n  \"payment_id\": \"01HXYZ...\",\n  \"status\": \"pending\",\n  \"amount\": 1000,\n  \"currency\": \"USD\",\n  \"correlation_id\": \"local-test-001\"\n}"
+            },
+            {
+              "name": "404 Payment not found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Payment not found.\"\n}"
+            },
+            {
+              "name": "422 Payment not captured",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Payment status does not allow a refund.\",\n  \"errors\": {\n    \"payment_id\": [\"Only captured payments can be refunded.\"]\n  }\n}"
+            },
+            {
+              "name": "422 Amount exceeds payment",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Refund amount exceeds the original payment amount.\",\n  \"errors\": {\n    \"amount\": [\"The refund amount must not exceed the original payment amount.\"]\n  }\n}"
+            },
+            {
+              "name": "422 Validation error",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"The payment id field is required. (and 1 more error)\",\n  \"errors\": {\n    \"payment_id\": [\"The payment id field is required.\"],\n    \"amount\": [\"The amount field is required.\"]\n  }\n}"
+            },
+            {
+              "name": "401 Unauthorized",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Missing API key.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Initiate Refund — idempotency replay",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",    "value": "application/json" },
+              { "key": "Accept",          "value": "application/json" },
+              { "key": "Authorization",   "value": "Bearer {{api_key}}" },
+              { "key": "Idempotency-Key", "value": "refund-acme-00001" },
+              { "key": "X-Correlation-ID","value": "local-test-001" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_id\": \"{{payment_id}}\",\n  \"amount\": 1000\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/refunds",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "refunds"]
+            },
+            "description": "Repeats the same `Idempotency-Key` as the previous request. The merchant-api returns the cached 201 response without forwarding to payment-domain."
+          },
+          "response": []
+        },
+        {
+          "name": "Initiate Refund — missing required fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Accept",        "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{api_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/refunds",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "refunds"]
+            },
+            "description": "Omits all required fields. Expect 422 with validation errors for `payment_id` and `amount`."
+          },
+          "response": []
+        },
+        {
+          "name": "Initiate Refund — no auth",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_id\": \"{{payment_id}}\",\n  \"amount\": 1000\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/refunds",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "refunds"]
             },
             "description": "Omits Authorization header. Expect 401 Missing API key."
           },

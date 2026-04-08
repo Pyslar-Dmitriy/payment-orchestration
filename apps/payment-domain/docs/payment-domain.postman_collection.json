@@ -16,6 +16,12 @@
       "value": "",
       "type": "string",
       "description": "ULID of the last created payment. Set manually from the Initiate Payment response, or by the post-response script."
+    },
+    {
+      "key": "refund_id",
+      "value": "",
+      "type": "string",
+      "description": "ULID of the last created refund. Set manually from the Initiate Refund response, or by the post-response script."
     }
   ],
   "item": [
@@ -240,6 +246,135 @@
                   "value": "550e8400-e29b-41d4-a716-446655440000"
                 }
               ]
+            },
+            "description": "Uses a non-existent payment ID. Expect 404."
+          },
+          "response": []
+        }
+      ]
+    }
+  ,
+    {
+      "name": "Refunds",
+      "item": [
+        {
+          "name": "Initiate Refund",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.refund_id) {",
+                  "    pm.collectionVariables.set('refund_id', json.refund_id);",
+                  "    console.log('refund_id saved:', json.refund_id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",     "value": "application/json" },
+              { "key": "Accept",           "value": "application/json" },
+              { "key": "X-Correlation-ID", "value": "{{$guid}}", "description": "Propagated from merchant-api. Use a UUID." }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_id\": \"{{payment_id}}\",\n  \"merchant_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"amount\": 1000,\n  \"correlation_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/refunds",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "refunds"]
+            },
+            "description": "Initiate a refund against a captured payment. Called internally by merchant-api — never called directly by merchants.\n\n**Required fields:** `payment_id` (ULID, max 26 chars), `merchant_id` (UUID), `amount` (integer, min 1, in minor units), `correlation_id` (UUID)\n\n**Business rules enforced:**\n- Payment must exist and `merchant_id` must match — returns 404 otherwise (no existence leak).\n- Payment status must be `captured` — returns 422 if not.\n- `amount` must not exceed `payment.amount` — returns 422 if exceeded.\n\nCreates a `Refund` record (status: `pending`) and an `OutboxEvent` (`refund.initiated.v1`) in a single DB transaction.\n\nThe post-response script saves the returned `refund_id` to the `refund_id` collection variable."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"refund_id\": \"01href000000000000000000000\",\n  \"payment_id\": \"01knhswvgnty2g61yjgpqfk2tw\",\n  \"status\": \"pending\",\n  \"amount\": 1000,\n  \"currency\": \"USD\"\n}"
+            },
+            {
+              "name": "404 Payment not found / wrong merchant",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Payment not found.\"\n}"
+            },
+            {
+              "name": "422 Payment not captured",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Payment status does not allow a refund.\",\n  \"errors\": {\n    \"payment_id\": [\"Only captured payments can be refunded.\"]\n  }\n}"
+            },
+            {
+              "name": "422 Amount exceeds payment",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Refund amount exceeds the original payment amount.\",\n  \"errors\": {\n    \"amount\": [\"The refund amount must not exceed the original payment amount.\"]\n  }\n}"
+            },
+            {
+              "name": "422 Validation error",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"The payment id field is required.\",\n  \"errors\": {\n    \"payment_id\": [\"The payment id field is required.\"],\n    \"merchant_id\": [\"The merchant id field is required.\"],\n    \"amount\": [\"The amount field is required.\"],\n    \"correlation_id\": [\"The correlation id field is required.\"]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Initiate Refund — missing required fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/refunds",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "refunds"]
+            },
+            "description": "Expect 422 with validation errors for `payment_id`, `merchant_id`, `amount`, and `correlation_id`."
+          },
+          "response": []
+        },
+        {
+          "name": "Initiate Refund — payment not found",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_id\": \"00000000000000000000000000\",\n  \"merchant_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"amount\": 1000,\n  \"correlation_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/refunds",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "refunds"]
             },
             "description": "Uses a non-existent payment ID. Expect 404."
           },

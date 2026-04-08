@@ -42,6 +42,33 @@ final class PaymentDomainClient
     }
 
     /**
+     * @param array{
+     *   merchant_id: string,
+     *   payment_id: string,
+     *   amount: int,
+     *   correlation_id: string,
+     * } $payload
+     * @return array{refund_id: string, payment_id: string, status: string, amount: int, currency: string}|null
+     *
+     * @throws RequestException
+     */
+    public function initiateRefund(array $payload): ?array
+    {
+        $response = Http::withHeaders([
+            'X-Correlation-ID' => $payload['correlation_id'],
+            'Accept' => 'application/json',
+        ])->post("{$this->baseUrl}/api/v1/refunds", $payload);
+
+        if ($response->notFound()) {
+            return null;
+        }
+
+        $response->throw();
+
+        return $response->json();
+    }
+
+    /**
      * @return array{
      *   payment_id: string,
      *   status: string,
