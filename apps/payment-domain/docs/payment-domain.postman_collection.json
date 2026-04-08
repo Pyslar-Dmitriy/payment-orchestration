@@ -180,6 +180,70 @@
             "description": "Initiates a payment with only the required fields. Optional fields (`customer_reference`, `payment_method_reference`, `metadata`) are omitted. Expect 201."
           },
           "response": []
+        },
+        {
+          "name": "Get Payment",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept",           "value": "application/json" },
+              { "key": "X-Correlation-ID", "value": "{{$guid}}", "description": "Propagated from merchant-api." }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/{{payment_id}}?merchant_id=550e8400-e29b-41d4-a716-446655440000",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "payments", "{{payment_id}}"],
+              "query": [
+                {
+                  "key": "merchant_id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Scopes the lookup to this merchant. Returns 404 if the payment belongs to a different merchant."
+                }
+              ]
+            },
+            "description": "Fetch the current state of a single payment. Called internally by merchant-api — never called directly by merchants.\n\n**Path param:** `{id}` — payment ULID (use the `payment_id` collection variable set by Initiate Payment).\n**Query param:** `merchant_id` — required for isolation; returns 404 if the payment does not belong to this merchant.\n\n**Response fields:** `payment_id`, `status`, `amount`, `currency`, `provider_reference`, `failure_reason` (null if never failed), `created_at`, `updated_at`."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"payment_id\": \"01knhswvgnty2g61yjgpqfk2tw\",\n  \"status\": \"initiated\",\n  \"amount\": 1000,\n  \"currency\": \"USD\",\n  \"provider_reference\": null,\n  \"failure_reason\": null,\n  \"created_at\": \"2026-04-08T10:00:00+00:00\",\n  \"updated_at\": \"2026-04-08T10:00:00+00:00\"\n}"
+            },
+            {
+              "name": "404 Not found / wrong merchant",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Payment not found.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Payment — not found",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept",           "value": "application/json" },
+              { "key": "X-Correlation-ID", "value": "{{$guid}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/00000000000000000000000000?merchant_id=550e8400-e29b-41d4-a716-446655440000",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "payments", "00000000000000000000000000"],
+              "query": [
+                {
+                  "key": "merchant_id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000"
+                }
+              ]
+            },
+            "description": "Uses a non-existent payment ID. Expect 404."
+          },
+          "response": []
         }
       ]
     }

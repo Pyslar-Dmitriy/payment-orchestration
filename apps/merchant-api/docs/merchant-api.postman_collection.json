@@ -339,6 +339,82 @@
             "description": "Omits Authorization header. Expect 401 Missing API key."
           },
           "response": []
+        },
+        {
+          "name": "Get Payment",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept",           "value": "application/json" },
+              { "key": "Authorization",    "value": "Bearer {{api_key}}" },
+              { "key": "X-Correlation-ID", "value": "local-test-001", "description": "Optional. Propagated to payment-domain and echoed back in the response." }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/{{payment_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "payments", "{{payment_id}}"]
+            },
+            "description": "Fetch the current state of a single payment owned by the authenticated merchant.\n\n**Path param:** `{id}` — payment ULID (use the `payment_id` collection variable set by Initiate Payment).\n\n**Response fields:** `payment_id`, `status`, `amount`, `currency`, `provider_reference`, `failure_reason` (null if never failed), `created_at`, `updated_at`, `correlation_id`.\n\nReturns 404 for unknown payments and payments belonging to other merchants (no existence leak)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"payment_id\": \"01knhswvgnty2g61yjgpqfk2tw\",\n  \"status\": \"initiated\",\n  \"amount\": 9900,\n  \"currency\": \"USD\",\n  \"provider_reference\": null,\n  \"failure_reason\": null,\n  \"created_at\": \"2026-04-08T10:00:00+00:00\",\n  \"updated_at\": \"2026-04-08T10:00:00+00:00\",\n  \"correlation_id\": \"local-test-001\"\n}"
+            },
+            {
+              "name": "404 Not found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Payment not found.\"\n}"
+            },
+            {
+              "name": "401 Unauthorized",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Missing API key.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Payment — not found",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept",        "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{api_key}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/00000000000000000000000000",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "payments", "00000000000000000000000000"]
+            },
+            "description": "Uses a non-existent payment ID. Expect 404."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payment — no auth",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/{{payment_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "payments", "{{payment_id}}"]
+            },
+            "description": "Omits Authorization header. Expect 401 Missing API key."
+          },
+          "response": []
         }
       ]
     },

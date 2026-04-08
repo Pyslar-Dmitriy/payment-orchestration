@@ -97,6 +97,6 @@ The key design decisions are documented in `docs/architecture/adrs/`. Read these
 - Never log payment_id + raw card data together
 
 ## Working with tasks
-Before implementing a task: read the task file in docs/tasks/.                                                                                                                                                                                                                                                   
-After completing a task: update its checkbox in docs/tasks/epics.md and write a result summary in the bottom of the task file.                                                                                                                                                                                                                                             
+Use the `/implement-task <TASK-ID>` skill for all task implementation work. It contains the full checklist: reading the task, implementation standards, security and fail-safe requirements, test coverage, Postman collection updates, and marking the task complete.
+
 Do not implement work from a task not listed in the current epic.
