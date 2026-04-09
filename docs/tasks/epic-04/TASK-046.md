@@ -49,3 +49,26 @@ If payment-domain is down, `POST /payments` returns 5xx. The merchant has no pay
 - TASK-045 — Rate limiting and error contract (defines the merchant-facing error shape)
 - TASK-051 — Payment Aggregate (payment-domain idempotency on creation)
 - EPIC-06 — Temporal orchestrator (long-term async alternative)
+## Result
+
+### Files created
+- `app/Infrastructure/PaymentDomain/CircuitBreaker.php` — Cache-backed circuit breaker (threshold/cooldown configurable via `services.payment_domain.circuit_breaker.*`). Tracks consecutive failures; opens after N failures and resets after a successful call.
+- `app/Infrastructure/PaymentDomain/Exceptions/PaymentDomainCircuitOpenException.php`
+- `app/Infrastructure/PaymentDomain/Exceptions/PaymentDomainTimeoutException.php`
+- `app/Infrastructure/PaymentDomain/Exceptions/PaymentDomainValidationException.php` — carries the raw upstream payload for transparent 422 forwarding.
+- `app/Infrastructure/PaymentDomain/Exceptions/PaymentDomainConflictException.php`
+- `app/Infrastructure/PaymentDomain/Exceptions/PaymentDomainUnavailableException.php`
+- `tests/Feature/PaymentDomain/PaymentDomainResilienceTest.php` — 9 feature tests covering timeout, retry, circuit open/reset, and all error-code mappings.
+
+### Files modified
+- `app/Infrastructure/PaymentDomain/PaymentDomainClient.php` — Added `CircuitBreaker` injection and a private `send()` method with: connect/request timeouts, `retry(times: 2, when: ConnectionException, throw: false)`, circuit-breaker checks, and response-to-exception mapping.
+- `app/Providers/AppServiceProvider.php` — Registered `CircuitBreaker` singleton and five `renderable()` handlers mapping domain exceptions to stable merchant-facing error shapes.
+- `app/Interfaces/Http/Controllers/InitiateRefundController.php` — Removed the old manual `RequestException` catch block; error mapping is now handled globally.
+- `config/services.php` — Added `connect_timeout`, `timeout`, and `circuit_breaker` config keys under `payment_domain`.
+- `.env.example` — Added `PAYMENT_DOMAIN_CONNECT_TIMEOUT`, `PAYMENT_DOMAIN_TIMEOUT`, `PAYMENT_DOMAIN_CB_THRESHOLD`, `PAYMENT_DOMAIN_CB_COOLDOWN`.
+
+### Design decisions
+- **`retry(throw: false)`**: Critical — prevents Laravel's retry middleware from calling `$response->throw()` on non-2xx responses, which would mask 404/422/409/500 before we can inspect and map them.
+- **`catch (ConnectionException)`**: The `retry()` helper re-throws `ConnectionException` after exhausted retries (it does not return `false`); catching it explicitly in `send()` converts it to `PaymentDomainTimeoutException`.
+- **Exception rendering in `AppServiceProvider::boot()`** (not `bootstrap/app.php`): `bootstrap/` is not in the Docker volume mounts, so exception renderers must live in a service provider that is under `app/`.
+- **Single `Http::fake()` closure in resilience tests**: Laravel's `Http::fake()` merges stubs rather than replacing them. Tests that switch between fail and success modes use a single closure with a mutable `$failMode` flag to avoid stale throwing stubs firing on later requests.

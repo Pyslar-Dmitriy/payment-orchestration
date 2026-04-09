@@ -37,6 +37,12 @@ return [
 
     'payment_domain' => [
         'base_url' => env('PAYMENT_DOMAIN_URL', 'http://payment-domain/'),
+        'connect_timeout' => env('PAYMENT_DOMAIN_CONNECT_TIMEOUT', 2),
+        'timeout' => env('PAYMENT_DOMAIN_TIMEOUT', 5),
+        'circuit_breaker' => [
+            'threshold' => env('PAYMENT_DOMAIN_CB_THRESHOLD', 5),
+            'cooldown_seconds' => env('PAYMENT_DOMAIN_CB_COOLDOWN', 60),
+        ],
     ],
 
     'rate_limit' => [

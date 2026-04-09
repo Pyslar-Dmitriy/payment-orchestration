@@ -22,6 +22,7 @@ Before writing any code, reason through:
 - What are the failure modes — what can go wrong, and what should happen when it does?
 - Are there security implications (input validation, authorization, data exposure, injection)?
 - Does this touch an existing state machine, outbox, or idempotency mechanism?
+- What are the architectural tradeoffs?
 
 Only proceed once the approach is clear.
 
@@ -34,6 +35,8 @@ Follow these standards without exception:
 - Never publish to a queue directly from domain logic — always use the outbox pattern.
 - Never add long-running logic outside Temporal workflows/activities.
 - Propagate `correlation_id` and `causation_id` through HTTP headers and message metadata.
+- Does this not interfere with the fulfillment of past and future tasks?
+- Find gaps in a task immediately. The goal is to complete the task efficiently right away, without any future rework. The exception is when implementation is blocked by a future task.
 
 ### Code quality
 - Follow the existing internal layout: `Domain/`, `Application/`, `Infrastructure/`, `Interfaces/`.
