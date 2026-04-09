@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Payment;
 
+use App\Domain\Payment\PaymentStatus;
 use App\Domain\Payment\PaymentStatusHistory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -45,7 +46,7 @@ class ShowPaymentTest extends TestCase
             ])
             ->assertJsonFragment([
                 'payment_id' => $paymentId,
-                'status' => 'initiated',
+                'status' => PaymentStatus::CREATED->value,
                 'amount' => 1000,
                 'currency' => 'USD',
                 'provider_reference' => null,
@@ -59,8 +60,8 @@ class ShowPaymentTest extends TestCase
 
         PaymentStatusHistory::create([
             'payment_id' => $paymentId,
-            'from_status' => 'authorizing',
-            'to_status' => 'failed',
+            'from_status' => PaymentStatus::PENDING_PROVIDER->value,
+            'to_status' => PaymentStatus::FAILED->value,
             'reason' => 'Insufficient funds',
             'correlation_id' => $this->correlationId,
         ]);
@@ -77,16 +78,16 @@ class ShowPaymentTest extends TestCase
 
         PaymentStatusHistory::create([
             'payment_id' => $paymentId,
-            'from_status' => 'authorizing',
-            'to_status' => 'failed',
+            'from_status' => PaymentStatus::PENDING_PROVIDER->value,
+            'to_status' => PaymentStatus::FAILED->value,
             'reason' => 'Card declined',
             'correlation_id' => $this->correlationId,
         ]);
 
         PaymentStatusHistory::create([
             'payment_id' => $paymentId,
-            'from_status' => 'authorizing',
-            'to_status' => 'failed',
+            'from_status' => PaymentStatus::PENDING_PROVIDER->value,
+            'to_status' => PaymentStatus::FAILED->value,
             'reason' => 'Timeout',
             'correlation_id' => $this->correlationId,
         ]);

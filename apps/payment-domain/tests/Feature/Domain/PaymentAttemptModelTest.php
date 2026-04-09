@@ -5,6 +5,7 @@ namespace Tests\Feature\Domain;
 use App\Domain\Payment\Payment;
 use App\Domain\Payment\PaymentAttempt;
 use App\Domain\Payment\PaymentAttemptStatus;
+use App\Domain\Payment\PaymentStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -20,7 +21,7 @@ class PaymentAttemptModelTest extends TestCase
             'idempotency_key' => 'idem-attempt-test-001',
             'amount' => 2000,
             'currency' => 'USD',
-            'status' => 'initiated',
+            'status' => PaymentStatus::CREATED,
             'correlation_id' => '6ba7b810-9dad-11d1-80b4-00c04fd430c8',
         ]);
     }
@@ -41,7 +42,7 @@ class PaymentAttemptModelTest extends TestCase
             'payment_id' => $payment->id,
             'attempt_number' => 1,
             'provider_id' => 'stripe',
-            'status' => 'pending',
+            'status' => PaymentAttemptStatus::PENDING->value,
         ]);
 
         $this->assertNotNull($attempt->id);

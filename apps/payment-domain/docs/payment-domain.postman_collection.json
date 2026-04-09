@@ -121,7 +121,7 @@
               "host": ["{{base_url}}"],
               "path": ["api", "v1", "payments"]
             },
-            "description": "Create a payment intent. Called internally by merchant-api — never called directly by merchants.\n\n**Required fields:** `merchant_id` (UUID), `amount` (integer, min 1, in minor units), `currency` (3-char ISO 4217), `external_reference`, `idempotency_key` (string, max 255), `correlation_id` (UUID)\n**Optional fields:** `customer_reference`, `payment_method_reference`, `metadata` (object)\n\nCreates a `Payment` record (status: `initiated`), a `PaymentStatusHistory` entry, and an `OutboxEvent` for downstream consumers — all in a single DB transaction.\n\nThe post-response script saves the returned `payment_id` to the `payment_id` collection variable."
+            "description": "Create a payment intent. Called internally by merchant-api — never called directly by merchants.\n\n**Required fields:** `merchant_id` (UUID), `amount` (integer, min 1, in minor units), `currency` (3-char ISO 4217), `external_reference`, `idempotency_key` (string, max 255), `correlation_id` (UUID)\n**Optional fields:** `customer_reference`, `payment_method_reference`, `metadata` (object)\n\nCreates a `Payment` record (status: `created`), a `PaymentStatusHistory` entry, and an `OutboxEvent` for downstream consumers — all in a single DB transaction.\n\nThe post-response script saves the returned `payment_id` to the `payment_id` collection variable."
           },
           "response": [
             {
@@ -130,7 +130,7 @@
               "code": 201,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"payment_id\": \"01knhswvgnty2g61yjgpqfk2tw\",\n  \"status\": \"initiated\"\n}"
+              "body": "{\n  \"payment_id\": \"01knhswvgnty2g61yjgpqfk2tw\",\n  \"status\": \"created\"\n}"
             },
             {
               "name": "422 Validation error",
@@ -216,7 +216,7 @@
               "code": 200,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"payment_id\": \"01knhswvgnty2g61yjgpqfk2tw\",\n  \"status\": \"initiated\",\n  \"amount\": 1000,\n  \"currency\": \"USD\",\n  \"provider_reference\": null,\n  \"failure_reason\": null,\n  \"created_at\": \"2026-04-08T10:00:00+00:00\",\n  \"updated_at\": \"2026-04-08T10:00:00+00:00\"\n}"
+              "body": "{\n  \"payment_id\": \"01knhswvgnty2g61yjgpqfk2tw\",\n  \"status\": \"created\",\n  \"amount\": 1000,\n  \"currency\": \"USD\",\n  \"provider_reference\": null,\n  \"failure_reason\": null,\n  \"created_at\": \"2026-04-08T10:00:00+00:00\",\n  \"updated_at\": \"2026-04-08T10:00:00+00:00\"\n}"
             },
             {
               "name": "404 Not found / wrong merchant",
