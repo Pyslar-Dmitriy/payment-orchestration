@@ -22,5 +22,6 @@ final class Refund extends Model
 
     protected $casts = [
         'amount' => 'integer',
+        'status' => RefundStatus::class,
     ];
 }

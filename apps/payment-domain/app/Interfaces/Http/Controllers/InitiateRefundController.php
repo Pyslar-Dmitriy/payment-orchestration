@@ -4,6 +4,7 @@ namespace App\Interfaces\Http\Controllers;
 
 use App\Application\Refund\InitiateRefund;
 use App\Domain\Payment\Payment;
+use App\Domain\Payment\PaymentStatus;
 use App\Interfaces\Http\Requests\InitiateRefundRequest;
 use Illuminate\Http\JsonResponse;
 
@@ -21,7 +22,7 @@ final class InitiateRefundController
             return response()->json(['message' => 'Payment not found.'], 404);
         }
 
-        if ($payment->status !== 'captured') {
+        if ($payment->status !== PaymentStatus::CAPTURED) {
             return response()->json([
                 'message' => 'Payment status does not allow a refund.',
                 'errors' => ['payment_id' => ['Only captured payments can be refunded.']],

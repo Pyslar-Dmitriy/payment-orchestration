@@ -16,6 +16,7 @@ class InitiatePaymentTest extends TestCase
             'amount' => 1000,
             'currency' => 'USD',
             'external_reference' => 'order-abc-123',
+            'idempotency_key' => 'idem-key-test-001',
             'customer_reference' => 'cust-456',
             'payment_method_reference' => 'pm_test_token',
             'metadata' => ['source' => 'web'],
@@ -73,12 +74,19 @@ class InitiatePaymentTest extends TestCase
         $this->assertDatabaseHas('payment_status_history', ['correlation_id' => $correlationId]);
     }
 
+    public function test_idempotency_key_is_stored_on_payment(): void
+    {
+        $this->postJson('/api/v1/payments', $this->validPayload(['idempotency_key' => 'my-unique-key-abc']))->assertStatus(201);
+
+        $this->assertDatabaseHas('payments', ['idempotency_key' => 'my-unique-key-abc']);
+    }
+
     public function test_validates_required_fields(): void
     {
         $response = $this->postJson('/api/v1/payments', []);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['merchant_id', 'amount', 'currency', 'external_reference', 'correlation_id']);
+            ->assertJsonValidationErrors(['merchant_id', 'amount', 'currency', 'external_reference', 'idempotency_key', 'correlation_id']);
     }
 
     public function test_validates_amount_must_be_at_least_one(): void
@@ -120,6 +128,7 @@ class InitiatePaymentTest extends TestCase
             'amount' => 500,
             'currency' => 'EUR',
             'external_reference' => 'order-minimal',
+            'idempotency_key' => 'idem-key-minimal-001',
             'correlation_id' => '6ba7b810-9dad-11d1-80b4-00c04fd430c8',
         ];
 
