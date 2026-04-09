@@ -48,3 +48,7 @@ See also: ADR-010 (introduces `requires_reconciliation` status).
 - The table is covered by unit tests: at minimum one test per valid transition and one per forbidden transition.
 - No controller or workflow updates payment status directly — only the aggregate's transition method does.
 - Status history is recorded for every transition.
+
+## Result
+
+Implemented as part of TASK-051. The transition table is encoded in `app/Domain/Payment/PaymentStateMachine::TRANSITIONS` as a private constant. All 18 valid transitions and 14 representative forbidden transitions are covered by `PaymentStateMachineTest` using PHPUnit 12 `#[DataProvider]` attributes.

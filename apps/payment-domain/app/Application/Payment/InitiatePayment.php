@@ -11,8 +11,8 @@ use Illuminate\Support\Facades\DB;
 final class InitiatePayment
 {
     /**
-     * Create a new payment in `initiated` status, record the first status history
-     * entry, and enqueue a PaymentInitiated event via the outbox — all in one
+     * Create a new payment in `created` status, record the first status history
+     * entry, and enqueue a PaymentCreated event via the outbox — all in one
      * database transaction.
      *
      * @param array{
@@ -40,14 +40,14 @@ final class InitiatePayment
                 'customer_reference' => $data['customer_reference'] ?? null,
                 'payment_method_reference' => $data['payment_method_reference'] ?? null,
                 'metadata' => $data['metadata'] ?? null,
-                'status' => PaymentStatus::INITIATED,
+                'status' => PaymentStatus::CREATED,
                 'correlation_id' => $data['correlation_id'],
             ]);
 
             PaymentStatusHistory::create([
                 'payment_id' => $payment->id,
                 'from_status' => null,
-                'to_status' => PaymentStatus::INITIATED,
+                'to_status' => PaymentStatus::CREATED,
                 'correlation_id' => $data['correlation_id'],
             ]);
 

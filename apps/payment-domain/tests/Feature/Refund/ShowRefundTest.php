@@ -3,7 +3,9 @@
 namespace Tests\Feature\Refund;
 
 use App\Domain\Payment\Payment;
+use App\Domain\Payment\PaymentStatus;
 use App\Domain\Refund\Refund;
+use App\Domain\Refund\RefundStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -22,7 +24,7 @@ class ShowRefundTest extends TestCase
             'external_reference' => 'order-abc-123',
             'amount' => 5000,
             'currency' => 'USD',
-            'status' => 'captured',
+            'status' => PaymentStatus::CAPTURED,
             'correlation_id' => $this->correlationId,
         ], $overrides));
     }
@@ -34,7 +36,7 @@ class ShowRefundTest extends TestCase
             'merchant_id' => $this->merchantId,
             'amount' => 1000,
             'currency' => 'USD',
-            'status' => 'pending',
+            'status' => RefundStatus::PENDING,
             'correlation_id' => $this->correlationId,
         ], $overrides));
     }
@@ -58,7 +60,7 @@ class ShowRefundTest extends TestCase
             ->assertJsonFragment([
                 'refund_id' => $refund->id,
                 'payment_id' => $payment->id,
-                'status' => 'pending',
+                'status' => RefundStatus::PENDING->value,
                 'amount' => 1000,
                 'currency' => 'USD',
                 'correlation_id' => $this->correlationId,

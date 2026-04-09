@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Payment;
 
+use App\Domain\Payment\PaymentStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -24,13 +25,13 @@ class InitiatePaymentTest extends TestCase
         ], $overrides);
     }
 
-    public function test_creates_payment_with_initiated_status(): void
+    public function test_creates_payment_with_created_status(): void
     {
         $response = $this->postJson('/api/v1/payments', $this->validPayload());
 
         $response->assertStatus(201)
             ->assertJsonStructure(['payment_id', 'status'])
-            ->assertJsonFragment(['status' => 'initiated']);
+            ->assertJsonFragment(['status' => PaymentStatus::CREATED->value]);
     }
 
     public function test_returns_a_ulid_payment_id(): void
@@ -48,7 +49,7 @@ class InitiatePaymentTest extends TestCase
         $this->assertDatabaseCount('payment_status_history', 1);
         $this->assertDatabaseHas('payment_status_history', [
             'from_status' => null,
-            'to_status' => 'initiated',
+            'to_status' => PaymentStatus::CREATED->value,
         ]);
     }
 

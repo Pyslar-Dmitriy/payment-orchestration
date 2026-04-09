@@ -3,6 +3,8 @@
 namespace Tests\Feature\Refund;
 
 use App\Domain\Payment\Payment;
+use App\Domain\Payment\PaymentStatus;
+use App\Domain\Refund\RefundStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -21,7 +23,7 @@ class InitiateRefundTest extends TestCase
             'external_reference' => 'order-abc-123',
             'amount' => 5000,
             'currency' => 'USD',
-            'status' => 'captured',
+            'status' => PaymentStatus::CAPTURED,
             'correlation_id' => $this->correlationId,
         ], $overrides));
     }
@@ -50,7 +52,7 @@ class InitiateRefundTest extends TestCase
             ->assertJsonStructure(['refund_id', 'payment_id', 'status', 'amount', 'currency'])
             ->assertJsonFragment([
                 'payment_id' => $payment->id,
-                'status' => 'pending',
+                'status' => RefundStatus::PENDING->value,
                 'amount' => 1000,
                 'currency' => 'USD',
             ]);
@@ -116,7 +118,7 @@ class InitiateRefundTest extends TestCase
 
     public function test_returns_422_when_payment_is_not_captured(): void
     {
-        $payment = $this->createCapturedPayment(['status' => 'initiated']);
+        $payment = $this->createCapturedPayment(['status' => PaymentStatus::CREATED]);
 
         $response = $this->postJson('/api/v1/refunds', $this->validPayload($payment->id));
 
@@ -126,7 +128,7 @@ class InitiateRefundTest extends TestCase
 
     public function test_returns_422_when_payment_is_already_refunded(): void
     {
-        $payment = $this->createCapturedPayment(['status' => 'refunded']);
+        $payment = $this->createCapturedPayment(['status' => PaymentStatus::REFUNDED]);
 
         $response = $this->postJson('/api/v1/refunds', $this->validPayload($payment->id));
 
