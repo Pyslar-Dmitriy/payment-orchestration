@@ -21,6 +21,8 @@ final class PaymentStatusHistory extends Model
     ];
 
     protected $casts = [
+        'from_status' => PaymentStatus::class,
+        'to_status' => PaymentStatus::class,
         'created_at' => 'datetime',
     ];
 

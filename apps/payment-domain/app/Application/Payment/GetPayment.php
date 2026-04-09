@@ -34,9 +34,11 @@ final class GetPayment
             ->latest('id')
             ->value('reason');
 
+        // TODO: once state-transition use cases write failure_reason directly to the payments
+        // row, replace $failureReason with $payment->failure_reason to avoid the join.
         return [
             'payment_id' => $payment->id,
-            'status' => $payment->status,
+            'status' => $payment->status->value,
             'amount' => $payment->amount,
             'currency' => $payment->currency,
             'provider_reference' => $payment->provider_transaction_id,

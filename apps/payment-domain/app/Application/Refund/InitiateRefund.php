@@ -3,6 +3,7 @@
 namespace App\Application\Refund;
 
 use App\Domain\Refund\Refund;
+use App\Domain\Refund\RefundStatus;
 use App\Infrastructure\Outbox\OutboxEvent;
 use Illuminate\Support\Facades\DB;
 
@@ -29,7 +30,7 @@ final class InitiateRefund
                 'merchant_id' => $data['merchant_id'],
                 'amount' => $data['amount'],
                 'currency' => $data['currency'],
-                'status' => 'pending',
+                'status' => RefundStatus::PENDING,
                 'correlation_id' => $data['correlation_id'],
             ]);
 
@@ -43,7 +44,7 @@ final class InitiateRefund
                     'merchant_id' => $refund->merchant_id,
                     'amount' => $refund->amount,
                     'currency' => $refund->currency,
-                    'status' => $refund->status,
+                    'status' => $refund->status->value,
                     'correlation_id' => $data['correlation_id'],
                     'occurred_at' => now()->toIso8601String(),
                 ],
@@ -52,7 +53,7 @@ final class InitiateRefund
             return [
                 'refund_id' => $refund->id,
                 'payment_id' => $refund->payment_id,
-                'status' => $refund->status,
+                'status' => $refund->status->value,
                 'amount' => $refund->amount,
                 'currency' => $refund->currency,
             ];

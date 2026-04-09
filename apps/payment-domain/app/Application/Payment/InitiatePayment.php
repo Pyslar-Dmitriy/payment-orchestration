@@ -3,6 +3,7 @@
 namespace App\Application\Payment;
 
 use App\Domain\Payment\Payment;
+use App\Domain\Payment\PaymentStatus;
 use App\Domain\Payment\PaymentStatusHistory;
 use App\Infrastructure\Outbox\OutboxEvent;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +20,7 @@ final class InitiatePayment
      *   amount: int,
      *   currency: string,
      *   external_reference: string,
+     *   idempotency_key: string,
      *   customer_reference: string|null,
      *   payment_method_reference: string|null,
      *   metadata: array|null,
@@ -34,17 +36,18 @@ final class InitiatePayment
                 'amount' => $data['amount'],
                 'currency' => $data['currency'],
                 'external_reference' => $data['external_reference'],
+                'idempotency_key' => $data['idempotency_key'],
                 'customer_reference' => $data['customer_reference'] ?? null,
                 'payment_method_reference' => $data['payment_method_reference'] ?? null,
                 'metadata' => $data['metadata'] ?? null,
-                'status' => 'initiated',
+                'status' => PaymentStatus::INITIATED,
                 'correlation_id' => $data['correlation_id'],
             ]);
 
             PaymentStatusHistory::create([
                 'payment_id' => $payment->id,
                 'from_status' => null,
-                'to_status' => 'initiated',
+                'to_status' => PaymentStatus::INITIATED,
                 'correlation_id' => $data['correlation_id'],
             ]);
 
@@ -59,7 +62,7 @@ final class InitiatePayment
                     'currency' => $payment->currency,
                     'external_reference' => $payment->external_reference,
                     'customer_reference' => $payment->customer_reference,
-                    'status' => $payment->status,
+                    'status' => $payment->status->value,
                     'correlation_id' => $data['correlation_id'],
                     'occurred_at' => now()->toIso8601String(),
                 ],
@@ -67,7 +70,7 @@ final class InitiatePayment
 
             return [
                 'payment_id' => $payment->id,
-                'status' => $payment->status,
+                'status' => $payment->status->value,
             ];
         });
     }

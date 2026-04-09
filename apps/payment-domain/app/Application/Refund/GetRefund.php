@@ -31,7 +31,7 @@ final class GetRefund
         return [
             'refund_id' => $refund->id,
             'payment_id' => $refund->payment_id,
-            'status' => $refund->status,
+            'status' => $refund->status->value,
             'amount' => $refund->amount,
             'currency' => $refund->currency,
             'correlation_id' => $refund->correlation_id,
