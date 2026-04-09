@@ -5,7 +5,6 @@ namespace App\Interfaces\Http\Controllers;
 use App\Domain\IdempotencyKey\IdempotencyKey;
 use App\Infrastructure\PaymentDomain\PaymentDomainClient;
 use App\Interfaces\Http\Requests\InitiateRefundRequest;
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\JsonResponse;
 
 final class InitiateRefundController
@@ -28,20 +27,12 @@ final class InitiateRefundController
             }
         }
 
-        try {
-            $result = $this->paymentDomainClient->initiateRefund([
-                'payment_id' => $request->validated('payment_id'),
-                'merchant_id' => $merchant->id,
-                'amount' => $request->validated('amount'),
-                'correlation_id' => $correlationId,
-            ]);
-        } catch (RequestException $e) {
-            if ($e->response->status() === 422) {
-                return response()->json($e->response->json(), 422);
-            }
-
-            throw $e;
-        }
+        $result = $this->paymentDomainClient->initiateRefund([
+            'payment_id' => $request->validated('payment_id'),
+            'merchant_id' => $merchant->id,
+            'amount' => $request->validated('amount'),
+            'correlation_id' => $correlationId,
+        ]);
 
         if ($result === null) {
             return response()->json(['message' => 'Payment not found.'], 404);
