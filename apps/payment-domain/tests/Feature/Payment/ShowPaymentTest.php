@@ -23,6 +23,7 @@ class ShowPaymentTest extends TestCase
             'currency' => 'USD',
             'external_reference' => 'order-abc-123',
             'idempotency_key' => 'idem-show-test-001',
+            'provider_id' => 'mock',
             'correlation_id' => $this->correlationId,
         ], $overrides));
 

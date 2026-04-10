@@ -28,12 +28,14 @@ final class PaymentDomainClient
      *   amount: int,
      *   currency: string,
      *   external_reference: string,
+     *   idempotency_key: string,
+     *   provider_id: string,
      *   customer_reference: string|null,
      *   payment_method_reference: string|null,
      *   metadata: array|null,
      *   correlation_id: string,
      * } $payload
-     * @return array{payment_id: string, status: string}
+     * @return array{payment_id: string, attempt_id: string, status: string}
      *
      * @throws PaymentDomainCircuitOpenException
      * @throws PaymentDomainTimeoutException

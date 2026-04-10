@@ -25,3 +25,5 @@ Format:
 12. [ADR-012 — Kafka schema evolution and breaking change strategy](ADR-012-kafka-schema-evolution.md)
 13. [ADR-013 — Use Form Request classes for HTTP input validation](ADR-013-use-form-request-classes-for-http-input-validation.md)
 14. [ADR-014 — Use single-action controllers](ADR-014-use-single-action-controllers.md)
+15. [ADR-015 — Use HTTP status code constants instead of plain integers](ADR-015-use-http-status-code-constants.md)
+16. [ADR-016 — Use readonly DTOs at use-case boundaries instead of plain arrays](ADR-016-use-readonly-dtos-at-use-case-boundaries.md)

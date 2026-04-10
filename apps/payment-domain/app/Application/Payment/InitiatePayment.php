@@ -2,7 +2,11 @@
 
 namespace App\Application\Payment;
 
+use App\Application\Payment\DTO\InitiatePaymentCommand;
+use App\Application\Payment\DTO\InitiatePaymentResult;
 use App\Domain\Payment\Payment;
+use App\Domain\Payment\PaymentAttempt;
+use App\Domain\Payment\PaymentAttemptStatus;
 use App\Domain\Payment\PaymentStatus;
 use App\Domain\Payment\PaymentStatusHistory;
 use App\Infrastructure\Outbox\OutboxEvent;
@@ -12,43 +16,55 @@ final class InitiatePayment
 {
     /**
      * Create a new payment in `created` status, record the first status history
-     * entry, and enqueue a PaymentCreated event via the outbox — all in one
-     * database transaction.
+     * entry, create the initial payment attempt, and enqueue a PaymentCreated
+     * event via the outbox — all in one database transaction.
      *
-     * @param array{
-     *   merchant_id: string,
-     *   amount: int,
-     *   currency: string,
-     *   external_reference: string,
-     *   idempotency_key: string,
-     *   customer_reference: string|null,
-     *   payment_method_reference: string|null,
-     *   metadata: array|null,
-     *   correlation_id: string,
-     * } $data
-     * @return array{payment_id: string, status: string}
+     * If a payment with the same `idempotency_key` already exists, the existing
+     * record is returned immediately without writing anything (idempotent replay).
      */
-    public function execute(array $data): array
+    public function execute(InitiatePaymentCommand $command): InitiatePaymentResult
     {
-        return DB::transaction(function () use ($data): array {
+        $existing = Payment::where('idempotency_key', $command->idempotencyKey)->first();
+
+        if ($existing !== null) {
+            $existingAttempt = $existing->attempts()->orderBy('attempt_number')->first();
+
+            return new InitiatePaymentResult(
+                paymentId: $existing->id,
+                attemptId: $existingAttempt?->id,
+                status: $existing->status->value,
+                created: false,
+            );
+        }
+
+        return DB::transaction(function () use ($command): InitiatePaymentResult {
             $payment = Payment::create([
-                'merchant_id' => $data['merchant_id'],
-                'amount' => $data['amount'],
-                'currency' => $data['currency'],
-                'external_reference' => $data['external_reference'],
-                'idempotency_key' => $data['idempotency_key'],
-                'customer_reference' => $data['customer_reference'] ?? null,
-                'payment_method_reference' => $data['payment_method_reference'] ?? null,
-                'metadata' => $data['metadata'] ?? null,
+                'merchant_id' => $command->merchantId,
+                'amount' => $command->amount,
+                'currency' => $command->currency,
+                'external_reference' => $command->externalReference,
+                'idempotency_key' => $command->idempotencyKey,
+                'provider_id' => $command->providerId,
+                'customer_reference' => $command->customerReference,
+                'payment_method_reference' => $command->paymentMethodReference,
+                'metadata' => $command->metadata,
                 'status' => PaymentStatus::CREATED,
-                'correlation_id' => $data['correlation_id'],
+                'correlation_id' => $command->correlationId,
             ]);
 
             PaymentStatusHistory::create([
                 'payment_id' => $payment->id,
                 'from_status' => null,
                 'to_status' => PaymentStatus::CREATED,
-                'correlation_id' => $data['correlation_id'],
+                'correlation_id' => $command->correlationId,
+            ]);
+
+            $attempt = PaymentAttempt::create([
+                'payment_id' => $payment->id,
+                'attempt_number' => 1,
+                'provider_id' => $command->providerId,
+                'status' => PaymentAttemptStatus::PENDING,
+                'correlation_id' => $command->correlationId,
             ]);
 
             OutboxEvent::create([
@@ -57,21 +73,25 @@ final class InitiatePayment
                 'event_type' => 'payment.initiated.v1',
                 'payload' => [
                     'payment_id' => $payment->id,
+                    'attempt_id' => $attempt->id,
                     'merchant_id' => $payment->merchant_id,
                     'amount' => $payment->amount,
                     'currency' => $payment->currency,
                     'external_reference' => $payment->external_reference,
                     'customer_reference' => $payment->customer_reference,
+                    'provider_id' => $payment->provider_id,
                     'status' => $payment->status->value,
-                    'correlation_id' => $data['correlation_id'],
+                    'correlation_id' => $command->correlationId,
                     'occurred_at' => now()->toIso8601String(),
                 ],
             ]);
 
-            return [
-                'payment_id' => $payment->id,
-                'status' => $payment->status->value,
-            ];
+            return new InitiatePaymentResult(
+                paymentId: $payment->id,
+                attemptId: $attempt->id,
+                status: $payment->status->value,
+                created: true,
+            );
         });
     }
 }

@@ -2,23 +2,12 @@
 
 namespace App\Application\Refund;
 
+use App\Application\Refund\DTO\GetRefundResult;
 use App\Domain\Refund\Refund;
 
 final class GetRefund
 {
-    /**
-     * @return array{
-     *   refund_id: string,
-     *   payment_id: string,
-     *   status: string,
-     *   amount: int,
-     *   currency: string,
-     *   correlation_id: string,
-     *   created_at: string,
-     *   updated_at: string,
-     * }|null
-     */
-    public function execute(string $refundId, string $merchantId): ?array
+    public function execute(string $refundId, string $merchantId): ?GetRefundResult
     {
         $refund = Refund::where('id', $refundId)
             ->where('merchant_id', $merchantId)
@@ -28,15 +17,15 @@ final class GetRefund
             return null;
         }
 
-        return [
-            'refund_id' => $refund->id,
-            'payment_id' => $refund->payment_id,
-            'status' => $refund->status->value,
-            'amount' => $refund->amount,
-            'currency' => $refund->currency,
-            'correlation_id' => $refund->correlation_id,
-            'created_at' => $refund->created_at->toIso8601String(),
-            'updated_at' => $refund->updated_at->toIso8601String(),
-        ];
+        return new GetRefundResult(
+            refundId: $refund->id,
+            paymentId: $refund->payment_id,
+            status: $refund->status->value,
+            amount: $refund->amount,
+            currency: $refund->currency,
+            correlationId: $refund->correlation_id,
+            createdAt: $refund->created_at->toIso8601String(),
+            updatedAt: $refund->updated_at->toIso8601String(),
+        );
     }
 }

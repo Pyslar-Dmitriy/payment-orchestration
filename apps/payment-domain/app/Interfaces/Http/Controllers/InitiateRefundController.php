@@ -2,11 +2,13 @@
 
 namespace App\Interfaces\Http\Controllers;
 
+use App\Application\Refund\DTO\InitiateRefundCommand;
 use App\Application\Refund\InitiateRefund;
 use App\Domain\Payment\Payment;
 use App\Domain\Payment\PaymentStatus;
 use App\Interfaces\Http\Requests\InitiateRefundRequest;
 use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 final class InitiateRefundController
 {
@@ -19,31 +21,33 @@ final class InitiateRefundController
             ->first();
 
         if ($payment === null) {
-            return response()->json(['message' => 'Payment not found.'], 404);
+            return response()->json(['message' => 'Payment not found.'], Response::HTTP_NOT_FOUND);
         }
 
         if ($payment->status !== PaymentStatus::CAPTURED) {
             return response()->json([
                 'message' => 'Payment status does not allow a refund.',
                 'errors' => ['payment_id' => ['Only captured payments can be refunded.']],
-            ], 422);
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         if ($request->validated('amount') > $payment->amount) {
             return response()->json([
                 'message' => 'Refund amount exceeds the original payment amount.',
                 'errors' => ['amount' => ['The refund amount must not exceed the original payment amount.']],
-            ], 422);
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $result = $this->initiateRefund->execute([
-            'payment_id' => $payment->id,
-            'merchant_id' => $payment->merchant_id,
-            'amount' => $request->validated('amount'),
-            'currency' => $payment->currency,
-            'correlation_id' => $request->validated('correlation_id'),
-        ]);
+        $command = new InitiateRefundCommand(
+            paymentId: $payment->id,
+            merchantId: $payment->merchant_id,
+            amount: $request->validated('amount'),
+            currency: $payment->currency,
+            correlationId: $request->validated('correlation_id'),
+        );
 
-        return response()->json($result, 201);
+        $result = $this->initiateRefund->execute($command);
+
+        return response()->json($result, Response::HTTP_CREATED);
     }
 }

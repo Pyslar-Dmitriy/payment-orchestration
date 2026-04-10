@@ -43,6 +43,7 @@ return [
             'threshold' => env('PAYMENT_DOMAIN_CB_THRESHOLD', 5),
             'cooldown_seconds' => env('PAYMENT_DOMAIN_CB_COOLDOWN', 60),
         ],
+        'default_provider' => env('DEFAULT_PAYMENT_PROVIDER', 'mock'),
     ],
 
     'rate_limit' => [
