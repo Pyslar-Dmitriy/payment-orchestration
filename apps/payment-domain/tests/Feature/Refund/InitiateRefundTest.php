@@ -205,4 +205,60 @@ class InitiateRefundTest extends TestCase
         $this->assertDatabaseCount('refunds', 1);
         $this->assertDatabaseCount('outbox_events', 1);
     }
+
+    // -----------------------------------------------------------------------
+    // Cumulative refund amount guard
+    // -----------------------------------------------------------------------
+
+    public function test_returns_422_when_cumulative_refunds_exceed_payment_amount(): void
+    {
+        $payment = $this->createCapturedPayment(['amount' => 5000]);
+
+        // First partial refund of 3000
+        $this->postJson('/api/v1/refunds', $this->validPayload($payment->id, ['amount' => 3000]))
+            ->assertStatus(201);
+
+        // Second partial refund of 3000 would bring total to 6000 > 5000
+        $response = $this->postJson('/api/v1/refunds', $this->validPayload($payment->id, [
+            'amount' => 3000,
+            'correlation_id' => 'aaaabbbb-0000-0000-0000-000000000001',
+        ]));
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['amount']);
+    }
+
+    public function test_allows_refund_that_exactly_exhausts_remaining_amount(): void
+    {
+        $payment = $this->createCapturedPayment(['amount' => 5000]);
+
+        // First refund of 2000
+        $this->postJson('/api/v1/refunds', $this->validPayload($payment->id, ['amount' => 2000]))
+            ->assertStatus(201);
+
+        // Second refund of 3000 — total equals payment amount exactly
+        $response = $this->postJson('/api/v1/refunds', $this->validPayload($payment->id, [
+            'amount' => 3000,
+            'correlation_id' => 'aaaabbbb-0000-0000-0000-000000000001',
+        ]));
+
+        $response->assertStatus(201)->assertJsonFragment(['amount' => 3000]);
+    }
+
+    public function test_returns_422_when_cumulative_refunds_exceed_by_one_unit(): void
+    {
+        $payment = $this->createCapturedPayment(['amount' => 5000]);
+
+        $this->postJson('/api/v1/refunds', $this->validPayload($payment->id, ['amount' => 5000]))
+            ->assertStatus(201);
+
+        // Any further refund must be rejected
+        $response = $this->postJson('/api/v1/refunds', $this->validPayload($payment->id, [
+            'amount' => 1,
+            'correlation_id' => 'aaaabbbb-0000-0000-0000-000000000001',
+        ]));
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['amount']);
+    }
 }

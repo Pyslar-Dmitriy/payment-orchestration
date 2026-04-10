@@ -45,12 +45,13 @@ class InitiatePaymentTest extends TestCase
         return array_merge(['Authorization' => 'Bearer '.$this->apiKey], $extra);
     }
 
-    private function fakeDomainSuccess(string $paymentId = 'pay-ulid-01234567890'): void
+    private function fakeDomainSuccess(string $paymentId = 'pay-ulid-01234567890', string $attemptId = 'att-ulid-01234567890'): void
     {
         Http::fake([
             '*' => Http::response([
                 'payment_id' => $paymentId,
-                'status' => 'initiated',
+                'attempt_id' => $attemptId,
+                'status' => 'created',
             ], 201),
         ]);
     }
@@ -66,8 +67,8 @@ class InitiatePaymentTest extends TestCase
         $response = $this->postJson('/api/v1/payments', $this->validPayload(), $this->authHeaders());
 
         $response->assertStatus(201)
-            ->assertJsonStructure(['payment_id', 'status', 'correlation_id'])
-            ->assertJsonFragment(['status' => 'initiated']);
+            ->assertJsonStructure(['payment_id', 'attempt_id', 'status', 'correlation_id'])
+            ->assertJsonFragment(['status' => 'created', 'attempt_id' => 'att-ulid-01234567890']);
     }
 
     public function test_response_includes_correlation_id_from_request(): void
@@ -138,7 +139,7 @@ class InitiatePaymentTest extends TestCase
         $first->assertStatus(201)->assertJsonFragment(['payment_id' => 'pay-original-id']);
 
         // Reset fake — if domain is called again it would return a different ID
-        Http::fake(['*' => Http::response(['payment_id' => 'pay-different-id', 'status' => 'initiated'], 201)]);
+        Http::fake(['*' => Http::response(['payment_id' => 'pay-different-id', 'status' => 'created'], 201)]);
 
         $second = $this->postJson('/api/v1/payments', $this->validPayload(), $headers);
         $second->assertStatus(201)
@@ -149,8 +150,8 @@ class InitiatePaymentTest extends TestCase
     {
         Http::fake([
             '*' => Http::sequence()
-                ->push(['payment_id' => 'pay-001', 'status' => 'initiated'], 201)
-                ->push(['payment_id' => 'pay-002', 'status' => 'initiated'], 201),
+                ->push(['payment_id' => 'pay-001', 'status' => 'created'], 201)
+                ->push(['payment_id' => 'pay-002', 'status' => 'created'], 201),
         ]);
 
         $first = $this->postJson('/api/v1/payments', $this->validPayload(), $this->authHeaders(['Idempotency-Key' => 'key-A']));
@@ -164,8 +165,8 @@ class InitiatePaymentTest extends TestCase
     {
         Http::fake([
             '*' => Http::sequence()
-                ->push(['payment_id' => 'pay-001', 'status' => 'initiated'], 201)
-                ->push(['payment_id' => 'pay-002', 'status' => 'initiated'], 201),
+                ->push(['payment_id' => 'pay-001', 'status' => 'created'], 201)
+                ->push(['payment_id' => 'pay-002', 'status' => 'created'], 201),
         ]);
 
         $first = $this->postJson('/api/v1/payments', $this->validPayload(), $this->authHeaders());
@@ -186,8 +187,8 @@ class InitiatePaymentTest extends TestCase
 
         Http::fake([
             '*' => Http::sequence()
-                ->push(['payment_id' => 'pay-merchant-1', 'status' => 'initiated'], 201)
-                ->push(['payment_id' => 'pay-merchant-2', 'status' => 'initiated'], 201),
+                ->push(['payment_id' => 'pay-merchant-1', 'status' => 'created'], 201)
+                ->push(['payment_id' => 'pay-merchant-2', 'status' => 'created'], 201),
         ]);
 
         $first = $this->postJson(

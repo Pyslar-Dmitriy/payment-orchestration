@@ -258,6 +258,100 @@
             "description": "Uses a non-existent payment ID. Expect 404."
           },
           "response": []
+        },
+        {
+          "name": "Transition Payment Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type",     "value": "application/json" },
+              { "key": "Accept",           "value": "application/json" },
+              { "key": "X-Correlation-ID", "value": "{{$guid}}", "description": "Propagated from the orchestrator." }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchant_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"status\": \"authorized\",\n  \"correlation_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/{{payment_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "payments", "{{payment_id}}", "status"]
+            },
+            "description": "Transition a payment to a new status. Called internally by the payment-orchestrator (Temporal activities) — never called directly by merchants.\n\n**Path param:** `{id}` — payment ULID.\n**Required fields:** `merchant_id` (UUID), `status` (one of: `pending_provider`, `authorized`, `captured`, `failed`, `refunding`, `refunded`), `correlation_id` (UUID).\n**Optional fields:** `reason` (string, max 500), `failure_code` (string, max 100), `failure_reason` (string, max 500) — only meaningful when transitioning to `failed`.\n\n**Business rules enforced:**\n- Transition must be allowed by the payment state machine — returns 422 if not.\n- Merchant isolation: payment must belong to `merchant_id` — returns 404 otherwise.\n- Optimistic locking: if the payment was modified concurrently, returns 409.\n\nAlways writes a `payment_status_history` entry and an outbox event atomically."
+          },
+          "response": [
+            {
+              "name": "200 OK — authorized",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"payment_id\": \"01knhswvgnty2g61yjgpqfk2tw\",\n  \"status\": \"authorized\"\n}"
+            },
+            {
+              "name": "200 OK — failed (with failure details)",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"payment_id\": \"01knhswvgnty2g61yjgpqfk2tw\",\n  \"status\": \"failed\"\n}"
+            },
+            {
+              "name": "404 Payment not found / wrong merchant",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Payment not found.\"\n}"
+            },
+            {
+              "name": "422 Invalid transition",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Invalid status transition.\",\n  \"errors\": {\n    \"status\": [\"Invalid payment status transition from 'created' to 'captured'.\"]\n  }\n}"
+            },
+            {
+              "name": "409 Concurrency conflict",
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Payment was modified concurrently. Please retry.\"\n}"
+            },
+            {
+              "name": "422 Validation error",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"The status field is required.\",\n  \"errors\": {\n    \"merchant_id\": [\"The merchant id field is required.\"],\n    \"status\": [\"The status field is required.\"],\n    \"correlation_id\": [\"The correlation id field is required.\"]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Transition Payment Status — mark failed",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchant_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"status\": \"failed\",\n  \"failure_code\": \"insufficient_funds\",\n  \"failure_reason\": \"Card declined due to insufficient funds.\",\n  \"correlation_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/{{payment_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "payments", "{{payment_id}}", "status"]
+            },
+            "description": "Mark a payment as failed, including failure_code and failure_reason. Expect 200."
+          },
+          "response": []
         }
       ]
     }

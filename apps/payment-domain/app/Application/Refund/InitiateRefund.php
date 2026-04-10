@@ -4,6 +4,8 @@ namespace App\Application\Refund;
 
 use App\Application\Refund\DTO\InitiateRefundCommand;
 use App\Application\Refund\DTO\InitiateRefundResult;
+use App\Domain\Payment\Payment;
+use App\Domain\Refund\Exceptions\RefundAmountExceededException;
 use App\Domain\Refund\Refund;
 use App\Domain\Refund\RefundStatus;
 use App\Infrastructure\Outbox\OutboxEvent;
@@ -14,10 +16,29 @@ final class InitiateRefund
     /**
      * Create a new refund record and enqueue a RefundInitiated outbox event —
      * all within a single database transaction.
+     *
+     * Uses a pessimistic lock on the payment row to prevent concurrent refunds
+     * from exceeding the original payment amount in aggregate.
+     *
+     * @throws RefundAmountExceededException if cumulative refunds would exceed payment amount
      */
     public function execute(InitiateRefundCommand $command): InitiateRefundResult
     {
         return DB::transaction(function () use ($command): InitiateRefundResult {
+            $payment = Payment::where('id', $command->paymentId)
+                ->lockForUpdate()
+                ->first();
+
+            $alreadyRefunded = Refund::where('payment_id', $command->paymentId)
+                ->whereIn('status', [RefundStatus::PENDING->value, RefundStatus::SUCCEEDED->value])
+                ->sum('amount');
+
+            $remaining = $payment->amount - $alreadyRefunded;
+
+            if ($command->amount > $remaining) {
+                throw new RefundAmountExceededException($command->amount, $remaining);
+            }
+
             $refund = Refund::create([
                 'payment_id' => $command->paymentId,
                 'merchant_id' => $command->merchantId,

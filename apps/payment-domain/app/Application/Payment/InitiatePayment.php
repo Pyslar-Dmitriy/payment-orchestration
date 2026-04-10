@@ -24,7 +24,9 @@ final class InitiatePayment
      */
     public function execute(InitiatePaymentCommand $command): InitiatePaymentResult
     {
-        $existing = Payment::where('idempotency_key', $command->idempotencyKey)->first();
+        $existing = Payment::where('idempotency_key', $command->idempotencyKey)
+            ->where('merchant_id', $command->merchantId)
+            ->first();
 
         if ($existing !== null) {
             $existingAttempt = $existing->attempts()->orderBy('attempt_number')->first();
