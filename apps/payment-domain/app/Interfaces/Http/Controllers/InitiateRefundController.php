@@ -6,6 +6,7 @@ use App\Application\Refund\DTO\InitiateRefundCommand;
 use App\Application\Refund\InitiateRefund;
 use App\Domain\Payment\Payment;
 use App\Domain\Payment\PaymentStatus;
+use App\Domain\Refund\Exceptions\RefundAmountExceededException;
 use App\Interfaces\Http\Requests\InitiateRefundRequest;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -46,7 +47,14 @@ final class InitiateRefundController
             correlationId: $request->validated('correlation_id'),
         );
 
-        $result = $this->initiateRefund->execute($command);
+        try {
+            $result = $this->initiateRefund->execute($command);
+        } catch (RefundAmountExceededException) {
+            return response()->json([
+                'message' => 'Cumulative refund amount would exceed the original payment amount.',
+                'errors' => ['amount' => ['The total refunded amount must not exceed the original payment amount.']],
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
 
         return response()->json($result, Response::HTTP_CREATED);
     }

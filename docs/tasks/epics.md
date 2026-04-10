@@ -30,7 +30,7 @@
   - [x] [TASK-050 — Design a payment data model](./epic-05/TASK-050.md)
   - [x] [TASK-051 — Implement Payment Aggregate and State Transitions](./epic-05/TASK-051.md)
   - [x] [TASK-052 — Implement the "create payment" use case](./epic-05/TASK-052.md)
-  - [ ] [TASK-053 — Implement "update status" use cases](./epic-05/TASK-053.md)
+  - [x] [TASK-053 — Implement "update status" use cases](./epic-05/TASK-053.md)
   - [ ] [TASK-054 — Implement outbox publisher](./epic-05/TASK-054.md)
   - [ ] [TASK-055 — Add optimistic locking or selective pessimistic locking](./epic-05/TASK-055.md)
   - [x] [TASK-056 — Define the payment state machine transition table](./epic-05/TASK-056.md)

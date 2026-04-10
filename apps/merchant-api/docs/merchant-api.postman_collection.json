@@ -256,7 +256,7 @@
               "code": 201,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"payment_id\": \"01HXYZ...\",\n  \"status\": \"pending\",\n  \"correlation_id\": \"local-test-001\"\n}"
+              "body": "{\n  \"payment_id\": \"01knhswvgnty2g61yjgpqfk2tw\",\n  \"attempt_id\": \"01knhswvgnty2g61yjgpqfk2tx\",\n  \"status\": \"created\",\n  \"correlation_id\": \"local-test-001\"\n}"
             },
             {
               "name": "422 Validation error",
