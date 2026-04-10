@@ -14,6 +14,9 @@ final class InitiatePaymentController
     {
         $result = $this->initiatePayment->execute($request->validated());
 
-        return response()->json($result, 201);
+        $created = $result['created'];
+        unset($result['created']);
+
+        return response()->json($result, $created ? 201 : 200);
     }
 }

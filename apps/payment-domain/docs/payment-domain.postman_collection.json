@@ -113,7 +113,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"merchant_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"amount\": 1000,\n  \"currency\": \"USD\",\n  \"external_reference\": \"order-abc-123\",\n  \"idempotency_key\": \"order-abc-123-attempt-1\",\n  \"customer_reference\": \"cust-456\",\n  \"payment_method_reference\": \"pm_test_token\",\n  \"metadata\": { \"source\": \"web\" },\n  \"correlation_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\"\n}",
+              "raw": "{\n  \"merchant_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"amount\": 1000,\n  \"currency\": \"USD\",\n  \"external_reference\": \"order-abc-123\",\n  \"idempotency_key\": \"order-abc-123-attempt-1\",\n  \"provider_id\": \"mock\",\n  \"customer_reference\": \"cust-456\",\n  \"payment_method_reference\": \"pm_test_token\",\n  \"metadata\": { \"source\": \"web\" },\n  \"correlation_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -121,7 +121,7 @@
               "host": ["{{base_url}}"],
               "path": ["api", "v1", "payments"]
             },
-            "description": "Create a payment intent. Called internally by merchant-api — never called directly by merchants.\n\n**Required fields:** `merchant_id` (UUID), `amount` (integer, min 1, in minor units), `currency` (3-char ISO 4217), `external_reference`, `idempotency_key` (string, max 255), `correlation_id` (UUID)\n**Optional fields:** `customer_reference`, `payment_method_reference`, `metadata` (object)\n\nCreates a `Payment` record (status: `created`), a `PaymentStatusHistory` entry, and an `OutboxEvent` for downstream consumers — all in a single DB transaction.\n\nThe post-response script saves the returned `payment_id` to the `payment_id` collection variable."
+            "description": "Create a payment intent. Called internally by merchant-api — never called directly by merchants.\n\n**Required fields:** `merchant_id` (UUID), `amount` (integer, min 1, in minor units), `currency` (3-char ISO 4217), `external_reference`, `idempotency_key` (string, max 255), `provider_id` (string, max 100), `correlation_id` (UUID)\n**Optional fields:** `customer_reference`, `payment_method_reference`, `metadata` (object)\n\nCreates a `Payment` record (status: `created`), a `PaymentStatusHistory` entry, a `PaymentAttempt` (attempt_number: 1, status: `pending`), and an `OutboxEvent` — all in a single DB transaction.\n\n**Idempotency:** if a payment with the same `idempotency_key` already exists, the existing record is returned with HTTP 200 (no new records written).\n\nThe post-response script saves the returned `payment_id` to the `payment_id` collection variable."
           },
           "response": [
             {
@@ -130,7 +130,15 @@
               "code": 201,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"payment_id\": \"01knhswvgnty2g61yjgpqfk2tw\",\n  \"status\": \"created\"\n}"
+              "body": "{\n  \"payment_id\": \"01knhswvgnty2g61yjgpqfk2tw\",\n  \"attempt_id\": \"01knhswvgnty2g61yjgpqfk2tx\",\n  \"status\": \"created\"\n}"
+            },
+            {
+              "name": "200 Idempotent replay",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"payment_id\": \"01knhswvgnty2g61yjgpqfk2tw\",\n  \"attempt_id\": \"01knhswvgnty2g61yjgpqfk2tx\",\n  \"status\": \"created\"\n}"
             },
             {
               "name": "422 Validation error",
@@ -175,7 +183,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"merchant_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"amount\": 500,\n  \"currency\": \"EUR\",\n  \"external_reference\": \"order-minimal-001\",\n  \"idempotency_key\": \"order-minimal-001-attempt-1\",\n  \"correlation_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\"\n}",
+              "raw": "{\n  \"merchant_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"amount\": 500,\n  \"currency\": \"EUR\",\n  \"external_reference\": \"order-minimal-001\",\n  \"idempotency_key\": \"order-minimal-001-attempt-1\",\n  \"provider_id\": \"mock\",\n  \"correlation_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {

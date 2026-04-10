@@ -6,6 +6,7 @@ use App\Domain\IdempotencyKey\IdempotencyKey;
 use App\Infrastructure\PaymentDomain\PaymentDomainClient;
 use App\Interfaces\Http\Requests\InitiatePaymentRequest;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
 
 final class InitiatePaymentController
 {
@@ -32,6 +33,8 @@ final class InitiatePaymentController
             'amount' => $request->validated('amount'),
             'currency' => $request->validated('currency'),
             'external_reference' => $request->validated('external_order_id'),
+            'idempotency_key' => $idempotencyKeyValue ?? (string) Str::uuid(),
+            'provider_id' => (string) config('services.payment_domain.default_provider', 'mock'),
             'customer_reference' => $request->validated('customer_reference'),
             'payment_method_reference' => $request->validated('payment_method_token'),
             'metadata' => $request->validated('metadata'),
