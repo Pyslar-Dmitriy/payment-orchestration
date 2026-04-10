@@ -5,6 +5,7 @@ namespace App\Interfaces\Http\Controllers;
 use App\Application\Refund\GetRefund;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 final class ShowRefundController
 {
@@ -17,9 +18,9 @@ final class ShowRefundController
         $result = $this->getRefund->execute($id, $merchantId);
 
         if ($result === null) {
-            return response()->json(['message' => 'Refund not found.'], 404);
+            return response()->json(['message' => 'Refund not found.'], Response::HTTP_NOT_FOUND);
         }
 
-        return response()->json($result);
+        return response()->json($result, Response::HTTP_OK);
     }
 }
