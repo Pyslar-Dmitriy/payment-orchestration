@@ -19,11 +19,16 @@ final class OutboxEvent extends Model
         'event_type',
         'payload',
         'published_at',
+        'retry_count',
+        'last_error',
+        'failed_permanently',
     ];
 
     protected $casts = [
         'payload' => 'array',
         'published_at' => 'datetime',
         'created_at' => 'datetime',
+        'retry_count' => 'integer',
+        'failed_permanently' => 'boolean',
     ];
 }
