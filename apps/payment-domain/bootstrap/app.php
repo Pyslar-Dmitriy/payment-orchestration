@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\CorrelationIdMiddleware;
+use App\Interfaces\Console\PublishOutboxEventsCommand;
 use App\Interfaces\Http\Controllers\HealthController;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -25,6 +26,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(CorrelationIdMiddleware::class);
     })
+    ->withCommands([
+        PublishOutboxEventsCommand::class,
+    ])
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (NotFoundHttpException $e, Request $request): JsonResponse {
             return response()->json(['message' => 'Not found.'], 404);

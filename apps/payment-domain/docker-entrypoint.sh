@@ -3,6 +3,8 @@ set -e
 
 cd /var/www/html
 
+composer update
+
 # In production, cache config/routes/events so they are served from a single
 # compiled PHP file instead of being parsed on every request.
 # In local dev the source directories are bind-mounted from the host, so any
