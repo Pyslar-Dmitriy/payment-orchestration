@@ -27,3 +27,4 @@ Format:
 14. [ADR-014 — Use single-action controllers](ADR-014-use-single-action-controllers.md)
 15. [ADR-015 — Use HTTP status code constants instead of plain integers](ADR-015-use-http-status-code-constants.md)
 16. [ADR-016 — Use readonly DTOs at use-case boundaries instead of plain arrays](ADR-016-use-readonly-dtos-at-use-case-boundaries.md)
+17. [ADR-017 — Use optimistic locking for concurrent payment status transitions](ADR-017-optimistic-locking-for-payment-status-transitions.md)
