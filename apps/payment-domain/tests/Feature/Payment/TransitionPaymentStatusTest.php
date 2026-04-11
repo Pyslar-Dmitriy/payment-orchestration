@@ -2,9 +2,11 @@
 
 namespace Tests\Feature\Payment;
 
+use App\Domain\Payment\Exceptions\PaymentConcurrencyException;
 use App\Domain\Payment\Payment;
 use App\Domain\Payment\PaymentStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
@@ -333,6 +335,78 @@ class TransitionPaymentStatusTest extends TestCase
 
         $this->assertDatabaseHas('payments', ['status' => 'pending_provider']);
         $this->assertDatabaseHas('outbox_events', ['event_type' => 'payment.pending_provider.v1']);
+    }
+
+    /**
+     * Race condition at the HTTP boundary: the use case loads the Payment model outside
+     * its transaction, so a concurrent writer can bump the version between the SELECT
+     * and the transactional UPDATE. We reproduce this with DB::listen — after the SELECT
+     * fires (model is in memory with version=0), the listener bumps the DB version to 1.
+     * The subsequent UPDATE WHERE version=0 then matches 0 rows, raising
+     * PaymentConcurrencyException, which the controller maps to 409 Conflict.
+     */
+    public function test_returns_409_when_payment_was_modified_concurrently(): void
+    {
+        $payment = $this->createPayment(PaymentStatus::CREATED, ['version' => 0]);
+        $paymentId = $payment->id;
+
+        $intercepted = false;
+        DB::listen(function ($query) use ($paymentId, &$intercepted): void {
+            if ($intercepted) {
+                return;
+            }
+            if (
+                str_contains(strtolower($query->sql), 'select')
+                && in_array($paymentId, $query->bindings, true)
+            ) {
+                $intercepted = true;
+                DB::table('payments')->where('id', $paymentId)->update(['version' => 1]);
+            }
+        });
+
+        $response = $this->patchStatus($payment->id, $this->validPayload('pending_provider'));
+
+        $response->assertStatus(409)
+            ->assertJsonFragment(['message' => 'Payment was modified concurrently. Please retry.']);
+    }
+
+    public function test_concurrent_conflict_does_not_write_outbox_event(): void
+    {
+        $payment = $this->createPayment(PaymentStatus::CREATED, ['version' => 0]);
+        $paymentId = $payment->id;
+
+        $intercepted = false;
+        DB::listen(function ($query) use ($paymentId, &$intercepted): void {
+            if ($intercepted) {
+                return;
+            }
+            if (
+                str_contains(strtolower($query->sql), 'select')
+                && in_array($paymentId, $query->bindings, true)
+            ) {
+                $intercepted = true;
+                DB::table('payments')->where('id', $paymentId)->update(['version' => 1]);
+            }
+        });
+
+        $this->patchStatus($payment->id, $this->validPayload('pending_provider'))->assertStatus(409);
+
+        $this->assertDatabaseCount('outbox_events', 0);
+    }
+
+    public function test_sequential_updates_succeed_without_conflict(): void
+    {
+        $payment = $this->createPayment(PaymentStatus::CREATED);
+
+        $this->patchStatus($payment->id, $this->validPayload('pending_provider'))->assertStatus(200);
+        $this->patchStatus($payment->id, $this->validPayload('authorized'))->assertStatus(200);
+        $this->patchStatus($payment->id, $this->validPayload('captured'))->assertStatus(200);
+
+        $this->assertDatabaseHas('payments', [
+            'id' => $payment->id,
+            'status' => PaymentStatus::CAPTURED->value,
+            'version' => 3,
+        ]);
     }
 
     // -----------------------------------------------------------------------
