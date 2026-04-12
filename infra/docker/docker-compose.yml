@@ -301,6 +301,34 @@ services:
       <<: *laravel-env-base
       DB_DATABASE: payment_orchestrator
       TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: default
+      TEMPORAL_TASK_QUEUE: payment-orchestrator
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+
+  payment-orchestrator-worker:
+    container_name: payment-orchestrator-worker
+    build:
+      context: ../../apps/payment-orchestrator
+      dockerfile: Dockerfile
+      target: worker
+    env_file:
+      - ../../apps/payment-orchestrator/.env
+    environment:
+      <<: *laravel-env-base
+      DB_DATABASE: payment_orchestrator
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: default
+      TEMPORAL_TASK_QUEUE: payment-orchestrator
+      APP_ENV: production
+    networks:
+      - payment-net
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
