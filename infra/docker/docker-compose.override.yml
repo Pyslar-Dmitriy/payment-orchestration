@@ -47,6 +47,15 @@ services:
       - ../../apps/payment-orchestrator/resources:/var/www/html/resources
       - ../../apps/payment-orchestrator/tests:/var/www/html/tests
 
+  payment-orchestrator-worker:
+    build:
+      target: worker
+    volumes:
+      - ../../apps/payment-orchestrator/app:/var/www/html/app
+      - ../../apps/payment-orchestrator/bootstrap:/var/www/html/bootstrap
+      - ../../apps/payment-orchestrator/config:/var/www/html/config
+      - ../../apps/payment-orchestrator/.rr.yaml:/var/www/html/.rr.yaml:ro
+
   provider-gateway:
     build:
       target: local

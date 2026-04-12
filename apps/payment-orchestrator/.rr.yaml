@@ -1,0 +1,25 @@
+version: "3"
+
+# RoadRunner spawns PHP workers with this command.
+# Each worker bootstraps Laravel, registers workflows/activities,
+# then blocks on WorkerFactory::run() waiting for Temporal tasks.
+server:
+  command: "php artisan temporal:worker"
+  relay: "pipes"
+  relay_timeout: "60s"
+
+# Temporal plugin — RoadRunner owns the gRPC connection to Temporal.
+temporal:
+  address: "${TEMPORAL_ADDRESS:-temporal:7233}"
+  namespace: "${TEMPORAL_NAMESPACE:-default}"
+  activities:
+    num_workers: 4
+  workflows:
+    num_workers: 4
+
+logs:
+  mode: production
+  level: info
+  encoding: json
+  output: stdout
+  err_output: stderr

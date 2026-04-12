@@ -35,7 +35,7 @@
   - [x] [TASK-055 — Add optimistic locking or selective pessimistic locking](./epic-05/TASK-055.md)
   - [x] [TASK-056 — Define the payment state machine transition table](./epic-05/TASK-056.md)
 - #### EPIC-06. Payment Orchestrator with Temporal
-  - [ ] [TASK-060 — Connect Temporal to the Laravel orchestrator service](./epic-06/TASK-060.md)
+  - [x] [TASK-060 — Connect Temporal to the Laravel orchestrator service](./epic-06/TASK-060.md)
   - [ ] [TASK-061 — Implement PaymentWorkflow](./epic-06/TASK-061.md)
   - [ ] [TASK-062 — Implement RefundWorkflow](./epic-06/TASK-062.md)
   - [ ] [TASK-063 — Implement activities for provider, ledger, and notifications](./epic-06/TASK-063.md)

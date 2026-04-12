@@ -1,7 +1,6 @@
 <?php
 
-use App\Interfaces\Http\Controllers\HealthController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/health', [HealthController::class, 'health']);
-Route::get('/ready', [HealthController::class, 'ready']);
+// API routes for the payment-orchestrator service will be added in TASK-061+.
+Route::get('/', fn () => response()->json(['service' => 'payment-orchestrator']));
