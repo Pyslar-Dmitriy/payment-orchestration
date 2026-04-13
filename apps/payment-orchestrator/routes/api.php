@@ -1,6 +1,8 @@
 <?php
 
+use App\Interfaces\Http\Controllers\StartPaymentWorkflowController;
 use Illuminate\Support\Facades\Route;
 
-// API routes for the payment-orchestrator service will be added in TASK-061+.
 Route::get('/', fn () => response()->json(['service' => 'payment-orchestrator']));
+
+Route::post('/workflows/payments', StartPaymentWorkflowController::class);

@@ -1,0 +1,134 @@
+{
+  "info": {
+    "name": "Payment Orchestrator (internal)",
+    "_postman_id": "payment-orchestrator-v1",
+    "description": "Manual test collection for the payment-orchestrator service.\n\nThis is an internal service — no authentication layer. Requests come from payment-domain or other internal services.\n\nBase URL is controlled by the `base_url` variable (default: http://localhost:8003).\n\nWorkflow:\n1. Use **Start Payment Workflow** to launch a Temporal PaymentWorkflow for a given payment UUID.\n2. The returned `workflow_id` equals the `payment_uuid`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8003",
+      "type": "string"
+    },
+    {
+      "key": "payment_uuid",
+      "value": "550e8400-e29b-41d4-a716-446655440001",
+      "type": "string",
+      "description": "UUID of the payment to orchestrate. Must match an existing payment in payment-domain."
+    }
+  ],
+  "item": [
+    {
+      "name": "Infrastructure",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\"status\":\"ok\"}"
+            }
+          ]
+        },
+        {
+          "name": "Ready",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ready",
+              "host": ["{{base_url}}"],
+              "path": ["ready"]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK — all dependencies healthy",
+              "status": "OK",
+              "code": 200,
+              "body": "{\"status\":\"ok\"}"
+            },
+            {
+              "name": "503 Service Unavailable — Temporal unreachable",
+              "status": "Service Unavailable",
+              "code": 503,
+              "body": "{\"status\":\"error\",\"message\":\"Temporal unavailable.\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Workflows",
+      "item": [
+        {
+          "name": "Start Payment Workflow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-Id",
+                "value": "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_uuid\": \"{{payment_uuid}}\",\n  \"merchant_id\": \"550e8400-e29b-41d4-a716-446655440002\",\n  \"amount\": 9900,\n  \"currency\": \"USD\",\n  \"country\": \"US\",\n  \"correlation_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/workflows/payments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "workflows", "payments"]
+            },
+            "description": "Starts a PaymentWorkflow in Temporal for the given payment UUID.\n\nWorkflow ID = payment_uuid (Temporal enforces uniqueness per running workflow).\nIf a workflow is already running for this payment UUID, a 409 is returned."
+          },
+          "response": [
+            {
+              "name": "201 Created — workflow started",
+              "status": "Created",
+              "code": 201,
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"workflow_id\": \"550e8400-e29b-41d4-a716-446655440001\"\n}"
+            },
+            {
+              "name": "409 Conflict — workflow already running",
+              "status": "Conflict",
+              "code": 409,
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"message\": \"A workflow for this payment is already running.\"\n}"
+            },
+            {
+              "name": "422 Unprocessable — validation error (invalid payload)",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"message\": \"The payment_uuid field is required.\",\n  \"errors\": {\n    \"payment_uuid\": [\"The payment_uuid field is required.\"]\n  }\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
