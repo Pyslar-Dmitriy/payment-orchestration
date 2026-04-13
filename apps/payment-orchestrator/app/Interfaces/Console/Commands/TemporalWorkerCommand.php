@@ -3,6 +3,7 @@
 namespace App\Interfaces\Console\Commands;
 
 use App\Domain\Workflow\HealthCheckWorkflowImpl;
+use App\Domain\Workflow\PaymentWorkflowImpl;
 use Illuminate\Console\Command;
 use Temporal\Worker\WorkerOptions;
 use Temporal\WorkerFactory;
@@ -26,7 +27,10 @@ class TemporalWorkerCommand extends Command
             options: WorkerOptions::new(),
         );
 
-        $worker->registerWorkflowTypes(HealthCheckWorkflowImpl::class);
+        $worker->registerWorkflowTypes(
+            HealthCheckWorkflowImpl::class,
+            PaymentWorkflowImpl::class,
+        );
 
         fwrite(STDERR, "Worker registered. Listening for tasks...\n");
 

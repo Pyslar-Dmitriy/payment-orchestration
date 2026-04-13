@@ -53,3 +53,48 @@ The workflow handles signals sequentially using a signal queue / channel. Signal
 - the 30-minute timeout triggers a provider status query, not an immediate `failed` transition;
 - duplicate signals with the same `provider_event_id` do not cause duplicate state transitions;
 - the compensation path (ADR-010) is triggered when the ledger activity permanently fails after a confirmed provider capture.
+## Result
+
+### Files created
+
+**DTOs** (`app/Domain/DTO/`)
+- `PaymentWorkflowInput.php` — input DTO for the workflow (paymentUuid, merchantId, amount, currency, country, correlationId)
+- `ProviderCallResult.php` — activity result: providerReference, providerStatus, isAsync flag
+- `ProviderStatusResult.php` — provider query result: providerStatus, isCaptured, isFailed flags
+
+**Activity interfaces** (`app/Domain/Activity/`)
+- `ProviderRoutingActivity.php` — `selectProvider(uuid, currency, country, excludedProviders[])` — selects provider with fallback support
+- `ProviderCallActivity.php` — `authorizeAndCapture(uuid, providerKey, correlationId)` — submits to provider
+- `ProviderStatusQueryActivity.php` — `queryStatus(uuid, providerKey, correlationId)` — timeout recovery query
+- `UpdatePaymentStatusActivity.php` — `markPendingProvider`, `markAuthorized`, `markCaptured`, `markFailed`, `markRequiresReconciliation`
+- `LedgerPostActivity.php` — `postCapture(uuid, correlationId)`
+- `MerchantCallbackActivity.php` — `triggerCallback(uuid, status, correlationId)`
+- `PublishDomainEventActivity.php` — `publishPaymentCaptured`, `publishPaymentFailed`, `publishPaymentRequiresReconciliation`
+
+**Workflow** (`app/Domain/Workflow/`)
+- `PaymentWorkflow.php` — interface with `#[WorkflowInterface]`, `run()`, `onAuthorizationResult()`, `onCaptureResult()` signal methods
+- `PaymentWorkflowImpl.php` — full workflow implementation
+
+**HTTP** (`app/Interfaces/Http/`)
+- `Controllers/StartPaymentWorkflowController.php` — `POST /api/workflows/payments` starts the workflow
+- `Requests/StartPaymentWorkflowRequest.php` — validates input (uuid, amount≥1, currency size:3, country size:2)
+
+**Other**
+- `routes/api.php` — route registered for `POST /api/workflows/payments`
+- `app/Interfaces/Console/Commands/TemporalWorkerCommand.php` — `PaymentWorkflowImpl` registered with worker
+- `docs/payment-orchestrator.postman_collection.json` — Postman collection with happy path, 409, and 422 examples
+
+**Tests** (32 total, all passing)
+- `tests/Unit/Domain/Workflow/PaymentWorkflowSignalHandlingTest.php` — 18 tests covering signal buffering, FIFO ordering, deduplication by provider_event_id, and isProviderSuccessStatus
+- `tests/Unit/Domain/DTO/ProviderCallResultTest.php` — 2 tests
+- `tests/Unit/Domain/DTO/ProviderStatusResultTest.php` — 3 tests
+- `tests/Feature/StartPaymentWorkflowTest.php` — 9 tests covering 201/409 and all validation rules
+
+### Design decisions
+
+- **Signal deduplication** is performed at consume time (not at enqueue time). Both signal handlers blindly append to `$signalQueue`; `consumeNextSignal()` checks `$processedEventIds` and skips duplicates. This avoids needing Temporal context inside signal handlers.
+- **30-minute timeout loop**: the workflow uses `Workflow::now()` for elapsed-time calculation in a while loop, re-calling `awaitWithTimeout` with the remaining seconds each iteration. This correctly handles the case where an auth signal arrives but capture is delayed beyond the original timeout.
+- **Provider fallback**: on `ActivityFailure` from the provider call, the workflow calls `selectProvider` again with the failed provider excluded. One fallback attempt only.
+- **Class B failure (requires_reconciliation)**: no merchant callback is triggered — per ADR-010 this is operator-intervention territory only. The `PaymentRequiresReconciliation` Kafka event serves as the operator alert.
+- **`authorizationReceived` flag**: set when a successful `provider.authorization_result` signal is processed. Used in the timeout-query-failure branch to decide Class A vs Class B (if auth was confirmed and provider query fails, funds may be captured — Class B).
+- **Activity implementations deferred**: all 7 activity interfaces are stubs; actual HTTP clients to payment-domain, ledger-service, etc. are implemented in TASK-063. Worker registration of activity implementations is also deferred to TASK-063.
