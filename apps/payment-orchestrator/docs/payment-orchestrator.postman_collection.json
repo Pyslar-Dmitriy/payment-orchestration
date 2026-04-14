@@ -16,6 +16,12 @@
       "value": "550e8400-e29b-41d4-a716-446655440001",
       "type": "string",
       "description": "UUID of the payment to orchestrate. Must match an existing payment in payment-domain."
+    },
+    {
+      "key": "refund_uuid",
+      "value": "550e8400-e29b-41d4-a716-446655440010",
+      "type": "string",
+      "description": "UUID of the refund to orchestrate. Must match an existing refund in payment-domain."
     }
   ],
   "item": [
@@ -125,6 +131,61 @@
                 {"key": "Content-Type", "value": "application/json"}
               ],
               "body": "{\n  \"message\": \"The payment_uuid field is required.\",\n  \"errors\": {\n    \"payment_uuid\": [\"The payment_uuid field is required.\"]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Start Refund Workflow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-Id",
+                "value": "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refund_uuid\": \"{{refund_uuid}}\",\n  \"payment_uuid\": \"{{payment_uuid}}\",\n  \"merchant_id\": \"550e8400-e29b-41d4-a716-446655440002\",\n  \"amount\": 5000,\n  \"currency\": \"USD\",\n  \"provider_key\": \"stripe\",\n  \"correlation_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/workflows/refunds",
+              "host": ["{{base_url}}"],
+              "path": ["api", "workflows", "refunds"]
+            },
+            "description": "Starts a RefundWorkflow in Temporal for the given refund UUID.\n\nWorkflow ID = refund_uuid (Temporal enforces uniqueness per running workflow).\nThe provider_key must match the provider used for the original payment.\nIf a workflow is already running for this refund UUID, a 409 is returned."
+          },
+          "response": [
+            {
+              "name": "201 Created — workflow started",
+              "status": "Created",
+              "code": 201,
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"workflow_id\": \"550e8400-e29b-41d4-a716-446655440010\"\n}"
+            },
+            {
+              "name": "409 Conflict — workflow already running",
+              "status": "Conflict",
+              "code": 409,
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"message\": \"A workflow for this refund is already running.\"\n}"
+            },
+            {
+              "name": "422 Unprocessable — validation error (missing refund_uuid)",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [
+                {"key": "Content-Type", "value": "application/json"}
+              ],
+              "body": "{\n  \"message\": \"The refund_uuid field is required.\",\n  \"errors\": {\n    \"refund_uuid\": [\"The refund_uuid field is required.\"]\n  }\n}"
             }
           ]
         }

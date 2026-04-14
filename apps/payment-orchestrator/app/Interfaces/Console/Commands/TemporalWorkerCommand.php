@@ -4,6 +4,7 @@ namespace App\Interfaces\Console\Commands;
 
 use App\Domain\Workflow\HealthCheckWorkflowImpl;
 use App\Domain\Workflow\PaymentWorkflowImpl;
+use App\Domain\Workflow\RefundWorkflowImpl;
 use Illuminate\Console\Command;
 use Temporal\Worker\WorkerOptions;
 use Temporal\WorkerFactory;
@@ -30,6 +31,7 @@ class TemporalWorkerCommand extends Command
         $worker->registerWorkflowTypes(
             HealthCheckWorkflowImpl::class,
             PaymentWorkflowImpl::class,
+            RefundWorkflowImpl::class,
         );
 
         fwrite(STDERR, "Worker registered. Listening for tasks...\n");
