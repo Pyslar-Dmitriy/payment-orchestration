@@ -35,4 +35,26 @@ interface PublishDomainEventActivity
         string $lastKnownProviderStatus,
         string $failureReason,
     ): void;
+
+    #[ActivityMethod(name: 'publishRefundCompleted')]
+    public function publishRefundCompleted(string $refundUuid, string $correlationId): void;
+
+    #[ActivityMethod(name: 'publishRefundFailed')]
+    public function publishRefundFailed(string $refundUuid, string $correlationId): void;
+
+    /**
+     * Publishes RefundRequiresReconciliation — ADR-010 Class B operator alert for refunds.
+     *
+     * @param  string  $failedStep  The activity that failed (e.g. 'ledger_post_refund').
+     * @param  string  $lastKnownProviderStatus  Provider-confirmed status at the point of failure.
+     * @param  string  $failureReason  Temporal activity failure message for diagnostics.
+     */
+    #[ActivityMethod(name: 'publishRefundRequiresReconciliation')]
+    public function publishRefundRequiresReconciliation(
+        string $refundUuid,
+        string $correlationId,
+        string $failedStep,
+        string $lastKnownProviderStatus,
+        string $failureReason,
+    ): void;
 }

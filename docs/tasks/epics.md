@@ -37,7 +37,7 @@
 - #### EPIC-06. Payment Orchestrator with Temporal
   - [x] [TASK-060 — Connect Temporal to the Laravel orchestrator service](./epic-06/TASK-060.md)
   - [x] [TASK-061 — Implement PaymentWorkflow](./epic-06/TASK-061.md)
-  - [ ] [TASK-062 — Implement RefundWorkflow](./epic-06/TASK-062.md)
+  - [x] [TASK-062 — Implement RefundWorkflow](./epic-06/TASK-062.md)
   - [ ] [TASK-063 — Implement activities for provider, ledger, and notifications](./epic-06/TASK-063.md)
   - [ ] [TASK-064 — Implement signal handling from webhook normalizer](./epic-06/TASK-064.md)
   - [ ] [TASK-065 — Implement compensation handling for permanent post-side-effect workflow failures](./epic-06/TASK-065.md)
