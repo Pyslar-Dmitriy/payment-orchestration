@@ -35,6 +35,10 @@ return [
         ],
     ],
 
+    'internal' => [
+        'secret' => env('INTERNAL_SERVICE_SECRET'),
+    ],
+
     'payment_domain' => [
         'base_url' => env('PAYMENT_DOMAIN_BASE_URL', 'http://payment-domain'),
         'internal_secret' => env('INTERNAL_SERVICE_SECRET'),
