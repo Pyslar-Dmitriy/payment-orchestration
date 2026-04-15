@@ -26,7 +26,7 @@ final class PaymentStateMachine
             PaymentStatus::CREATED->value => [PaymentStatus::PENDING_PROVIDER],
             PaymentStatus::PENDING_PROVIDER->value => [PaymentStatus::AUTHORIZED, PaymentStatus::CAPTURED, PaymentStatus::REQUIRES_ACTION, PaymentStatus::FAILED],
             PaymentStatus::REQUIRES_ACTION->value => [PaymentStatus::AUTHORIZED, PaymentStatus::CAPTURED, PaymentStatus::FAILED],
-            PaymentStatus::AUTHORIZED->value => [PaymentStatus::CAPTURED, PaymentStatus::CANCELLED, PaymentStatus::FAILED],
+            PaymentStatus::AUTHORIZED->value => [PaymentStatus::CAPTURED, PaymentStatus::CANCELLED, PaymentStatus::FAILED, PaymentStatus::REQUIRES_RECONCILIATION],
             PaymentStatus::CAPTURED->value => [PaymentStatus::REFUNDING, PaymentStatus::REQUIRES_RECONCILIATION],
             PaymentStatus::REFUNDING->value => [PaymentStatus::REFUNDED, PaymentStatus::CAPTURED, PaymentStatus::REQUIRES_RECONCILIATION],
             PaymentStatus::REQUIRES_RECONCILIATION->value => [PaymentStatus::CAPTURED, PaymentStatus::REFUNDED],

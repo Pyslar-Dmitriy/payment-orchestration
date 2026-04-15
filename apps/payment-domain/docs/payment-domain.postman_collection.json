@@ -22,6 +22,12 @@
       "value": "",
       "type": "string",
       "description": "ULID of the last created refund. Set manually from the Initiate Refund response, or by the post-response script."
+    },
+    {
+      "key": "internal_secret",
+      "value": "change-me-in-production",
+      "type": "string",
+      "description": "Value of INTERNAL_SERVICE_SECRET env var. Used in X-Internal-Secret header for orchestrator→domain calls."
     }
   ],
   "item": [
@@ -543,6 +549,194 @@
               "path": ["api", "v1", "refunds"]
             },
             "description": "Uses a non-existent payment ID. Expect 404."
+          },
+          "response": []
+        }
+      ]
+    }
+  ,
+    {
+      "name": "Internal (Orchestrator → Domain)",
+      "item": [
+        {
+          "name": "Internal Transition Payment Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type",       "value": "application/json" },
+              { "key": "Accept",             "value": "application/json" },
+              { "key": "X-Internal-Secret",  "value": "{{internal_secret}}", "description": "Shared secret for orchestrator→domain calls. Set in the internal_secret collection variable." }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"authorized\",\n  \"correlation_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/internal/v1/payments/{{payment_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "internal", "v1", "payments", "{{payment_id}}", "status"]
+            },
+            "description": "Transition a payment to a new status. Called exclusively by the payment-orchestrator Temporal activities — never by merchants.\n\nProtected by `X-Internal-Secret` header (shared secret, value must match `INTERNAL_SERVICE_SECRET` env var). Returns 401 if the header is absent or incorrect.\n\n**Path param:** `{id}` — payment ULID.\n**Required fields:** `status` (one of: `pending_provider`, `authorized`, `captured`, `failed`, `requires_reconciliation`), `correlation_id` (UUID).\n**Optional fields (only for failed/requires_reconciliation):** `failed_step` (string, max 100), `failure_code` (string, max 100), `failure_reason` (string, max 500).\n\nNo merchant_id scoping — the orchestrator is trusted to pass the correct payment UUID."
+          },
+          "response": [
+            {
+              "name": "200 OK — authorized",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"payment_id\": \"01knhswvgnty2g61yjgpqfk2tw\",\n  \"status\": \"authorized\"\n}"
+            },
+            {
+              "name": "200 OK — requires_reconciliation",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"payment_id\": \"01knhswvgnty2g61yjgpqfk2tw\",\n  \"status\": \"requires_reconciliation\"\n}"
+            },
+            {
+              "name": "401 Unauthorized",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Unauthorized.\"\n}"
+            },
+            {
+              "name": "404 Payment not found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Payment not found.\"\n}"
+            },
+            {
+              "name": "422 Invalid transition",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Invalid status transition.\"\n}"
+            },
+            {
+              "name": "422 Validation error",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"The status field is required.\",\n  \"errors\": {\n    \"status\": [\"The status field is required.\"],\n    \"correlation_id\": [\"The correlation id field is required.\"]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Internal Transition Payment Status — mark failed",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type",      "value": "application/json" },
+              { "key": "Accept",            "value": "application/json" },
+              { "key": "X-Internal-Secret", "value": "{{internal_secret}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"failed\",\n  \"failed_step\": \"authorize_and_capture\",\n  \"failure_code\": \"insufficient_funds\",\n  \"failure_reason\": \"Card declined due to insufficient funds.\",\n  \"correlation_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/internal/v1/payments/{{payment_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "internal", "v1", "payments", "{{payment_id}}", "status"]
+            },
+            "description": "Mark a payment as failed with failure details. Expect 200."
+          },
+          "response": []
+        },
+        {
+          "name": "Internal Transition Refund Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type",       "value": "application/json" },
+              { "key": "Accept",             "value": "application/json" },
+              { "key": "X-Internal-Secret",  "value": "{{internal_secret}}", "description": "Shared secret for orchestrator→domain calls." }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"pending_provider\",\n  \"correlation_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/internal/v1/refunds/{{refund_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "internal", "v1", "refunds", "{{refund_id}}", "status"]
+            },
+            "description": "Transition a refund to a new status. Called exclusively by the payment-orchestrator Temporal activities.\n\nProtected by `X-Internal-Secret` header.\n\n**Path param:** `{id}` — refund ULID.\n**Required fields:** `status` (one of: `pending_provider`, `succeeded`, `failed`, `requires_reconciliation`), `correlation_id` (UUID).\n**Optional fields (only for failed/requires_reconciliation):** `failed_step` (string, max 100), `failure_reason` (string, max 500)."
+          },
+          "response": [
+            {
+              "name": "200 OK — pending_provider",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"refund_id\": \"01href000000000000000000000\",\n  \"status\": \"pending_provider\"\n}"
+            },
+            {
+              "name": "200 OK — succeeded",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"refund_id\": \"01href000000000000000000000\",\n  \"status\": \"succeeded\"\n}"
+            },
+            {
+              "name": "401 Unauthorized",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Unauthorized.\"\n}"
+            },
+            {
+              "name": "404 Refund not found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Refund not found.\"\n}"
+            },
+            {
+              "name": "422 Invalid transition",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Invalid status transition.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Internal Transition Refund Status — mark failed",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type",      "value": "application/json" },
+              { "key": "Accept",            "value": "application/json" },
+              { "key": "X-Internal-Secret", "value": "{{internal_secret}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"failed\",\n  \"failed_step\": \"refund\",\n  \"failure_reason\": \"Provider rejected refund request.\",\n  \"correlation_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/internal/v1/refunds/{{refund_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "internal", "v1", "refunds", "{{refund_id}}", "status"]
+            },
+            "description": "Mark a refund as failed with failure details. Expect 200."
           },
           "response": []
         }
