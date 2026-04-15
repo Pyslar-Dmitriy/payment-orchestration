@@ -22,8 +22,14 @@ final class EventRouter
         'payment.refunding.v1' => ['kafka', 'payments.lifecycle.v1'],
         'payment.refunded.v1' => ['kafka', 'payments.lifecycle.v1'],
         'payment.cancelled.v1' => ['kafka', 'payments.lifecycle.v1'],
+        // Payment compensation
+        'payment.requires_reconciliation.v1' => ['kafka', 'payments.lifecycle.v1'],
         // Refund lifecycle → refunds.lifecycle.v1
         'refund.initiated.v1' => ['kafka', 'refunds.lifecycle.v1'],
+        'refund.pending_provider.v1' => ['kafka', 'refunds.lifecycle.v1'],
+        'refund.succeeded.v1' => ['kafka', 'refunds.lifecycle.v1'],
+        'refund.failed.v1' => ['kafka', 'refunds.lifecycle.v1'],
+        'refund.requires_reconciliation.v1' => ['kafka', 'refunds.lifecycle.v1'],
     ];
 
     /**

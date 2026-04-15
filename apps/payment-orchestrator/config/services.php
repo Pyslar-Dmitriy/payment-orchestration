@@ -35,4 +35,29 @@ return [
         ],
     ],
 
+    'payment_domain' => [
+        'base_url' => env('PAYMENT_DOMAIN_BASE_URL', 'http://payment-domain'),
+        'internal_secret' => env('INTERNAL_SERVICE_SECRET'),
+        'connect_timeout' => env('PAYMENT_DOMAIN_CONNECT_TIMEOUT', 2),
+        'timeout' => env('PAYMENT_DOMAIN_TIMEOUT', 5),
+    ],
+
+    'provider_gateway' => [
+        'base_url' => env('PROVIDER_GATEWAY_BASE_URL', 'http://provider-gateway'),
+        'connect_timeout' => env('PROVIDER_GATEWAY_CONNECT_TIMEOUT', 2),
+        'timeout' => env('PROVIDER_GATEWAY_TIMEOUT', 30),
+    ],
+
+    'ledger_service' => [
+        'base_url' => env('LEDGER_SERVICE_BASE_URL', 'http://ledger-service'),
+        'connect_timeout' => env('LEDGER_SERVICE_CONNECT_TIMEOUT', 2),
+        'timeout' => env('LEDGER_SERVICE_TIMEOUT', 10),
+    ],
+
+    'callback_delivery' => [
+        'base_url' => env('CALLBACK_DELIVERY_BASE_URL', 'http://merchant-callback-delivery'),
+        'connect_timeout' => env('CALLBACK_DELIVERY_CONNECT_TIMEOUT', 2),
+        'timeout' => env('CALLBACK_DELIVERY_TIMEOUT', 10),
+    ],
+
 ];
