@@ -51,6 +51,12 @@ final class ProviderCallActivityImpl implements ProviderCallActivity
 
         $data = $response->json();
 
+        if (! is_array($data) || ! isset($data['provider_reference'], $data['provider_status'], $data['is_async'])) {
+            throw new \RuntimeException(
+                'provider-gateway authorize response missing required fields: provider_reference, provider_status, is_async',
+            );
+        }
+
         return new ProviderCallResult(
             providerReference: $data['provider_reference'],
             providerStatus: $data['provider_status'],
@@ -81,6 +87,12 @@ final class ProviderCallActivityImpl implements ProviderCallActivity
         );
 
         $data = $response->json();
+
+        if (! is_array($data) || ! isset($data['provider_reference'], $data['provider_status'], $data['is_async'])) {
+            throw new \RuntimeException(
+                'provider-gateway refund response missing required fields: provider_reference, provider_status, is_async',
+            );
+        }
 
         return new ProviderCallResult(
             providerReference: $data['provider_reference'],

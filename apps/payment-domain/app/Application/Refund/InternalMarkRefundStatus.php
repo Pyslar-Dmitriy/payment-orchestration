@@ -3,6 +3,7 @@
 namespace App\Application\Refund;
 
 use App\Application\Refund\DTO\InternalUpdateRefundStatusCommand;
+use App\Application\Refund\DTO\UpdateRefundStatusResult;
 use App\Domain\Refund\Exceptions\InvalidRefundTransitionException;
 use App\Domain\Refund\Exceptions\RefundNotFoundException;
 use App\Domain\Refund\Refund;
@@ -24,14 +25,14 @@ final class InternalMarkRefundStatus
     public function execute(
         InternalUpdateRefundStatusCommand $command,
         RefundStatus $status,
-    ): array {
+    ): UpdateRefundStatusResult {
         $refund = Refund::where('id', $command->refundId)->first();
 
         if ($refund === null) {
             throw new RefundNotFoundException($command->refundId);
         }
 
-        return DB::transaction(function () use ($refund, $command, $status): array {
+        return DB::transaction(function () use ($refund, $command, $status): UpdateRefundStatusResult {
             $refund->transition(
                 $status,
                 $command->correlationId,
@@ -48,10 +49,10 @@ final class InternalMarkRefundStatus
                 'payload' => $payload,
             ]);
 
-            return [
-                'refund_id' => $refund->id,
-                'status' => $refund->status->value,
-            ];
+            return new UpdateRefundStatusResult(
+                refundId: $refund->id,
+                status: $refund->status->value,
+            );
         });
     }
 

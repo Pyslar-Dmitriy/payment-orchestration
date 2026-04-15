@@ -51,6 +51,12 @@ final class ProviderStatusQueryActivityImpl implements ProviderStatusQueryActivi
 
         $data = $response->json();
 
+        if (! is_array($data) || ! isset($data['provider_status'], $data['is_captured'], $data['is_authorized'], $data['is_failed'])) {
+            throw new \RuntimeException(
+                'provider-gateway payment status response missing required fields: provider_status, is_captured, is_authorized, is_failed',
+            );
+        }
+
         return new ProviderStatusResult(
             providerStatus: $data['provider_status'],
             isCaptured: (bool) $data['is_captured'],
@@ -78,6 +84,12 @@ final class ProviderStatusQueryActivityImpl implements ProviderStatusQueryActivi
         );
 
         $data = $response->json();
+
+        if (! is_array($data) || ! isset($data['provider_status'], $data['is_refunded'], $data['is_failed'])) {
+            throw new \RuntimeException(
+                'provider-gateway refund status response missing required fields: provider_status, is_refunded, is_failed',
+            );
+        }
 
         return new RefundStatusResult(
             providerStatus: $data['provider_status'],
