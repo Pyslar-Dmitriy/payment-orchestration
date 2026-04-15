@@ -22,9 +22,152 @@
       "value": "550e8400-e29b-41d4-a716-446655440010",
       "type": "string",
       "description": "UUID of the refund to orchestrate. Must match an existing refund in payment-domain."
+    },
+    {
+      "key": "internal_secret",
+      "value": "change-me",
+      "type": "string",
+      "description": "Shared secret for X-Internal-Secret header. Must match INTERNAL_SERVICE_SECRET env var."
     }
   ],
   "item": [
+    {
+      "name": "Signals",
+      "item": [
+        {
+          "name": "Signal Payment Workflow — authorization_result",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-Internal-Secret", "value": "{{internal_secret}}"},
+              {"key": "X-Correlation-Id", "value": "6ba7b810-9dad-11d1-80b4-00c04fd430c8"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"signal_name\": \"provider.authorization_result\",\n  \"provider_event_id\": \"evt_abc123\",\n  \"provider_status\": \"authorized\",\n  \"provider_reference\": \"ref_xyz\",\n  \"correlation_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/signals/payments/{{payment_uuid}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "signals", "payments", "{{payment_uuid}}"]
+            },
+            "description": "Sends a provider.authorization_result signal to the running PaymentWorkflow identified by payment_uuid.\n\nRequires X-Internal-Secret header (shared secret between internal services).\nThe workflow locates itself by the payment UUID (Temporal workflow ID).\nDuplicate signals with the same provider_event_id are safely deduplicated by the workflow."
+          },
+          "response": [
+            {
+              "name": "200 OK — signal accepted",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"message\": \"Signal accepted.\"\n}"
+            },
+            {
+              "name": "401 Unauthorized — missing or wrong X-Internal-Secret",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"message\": \"Unauthorized.\"\n}"
+            },
+            {
+              "name": "404 Not Found — workflow not running for this payment UUID",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"message\": \"Workflow not found.\"\n}"
+            },
+            {
+              "name": "422 Unprocessable — invalid signal_name",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"message\": \"The selected signal_name is invalid.\",\n  \"errors\": {\n    \"signal_name\": [\"The selected signal_name is invalid.\"]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Signal Payment Workflow — capture_result",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-Internal-Secret", "value": "{{internal_secret}}"},
+              {"key": "X-Correlation-Id", "value": "6ba7b810-9dad-11d1-80b4-00c04fd430c8"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"signal_name\": \"provider.capture_result\",\n  \"provider_event_id\": \"evt_def456\",\n  \"provider_status\": \"captured\",\n  \"provider_reference\": \"ref_cap_xyz\",\n  \"correlation_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/signals/payments/{{payment_uuid}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "signals", "payments", "{{payment_uuid}}"]
+            },
+            "description": "Sends a provider.capture_result signal to the running PaymentWorkflow."
+          },
+          "response": [
+            {
+              "name": "200 OK — signal accepted",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"message\": \"Signal accepted.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Signal Refund Workflow — refund_result",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-Internal-Secret", "value": "{{internal_secret}}"},
+              {"key": "X-Correlation-Id", "value": "6ba7b810-9dad-11d1-80b4-00c04fd430c8"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"signal_name\": \"provider.refund_result\",\n  \"provider_event_id\": \"evt_rfnd_001\",\n  \"provider_status\": \"refunded\",\n  \"provider_reference\": \"ref_rfnd_xyz\",\n  \"correlation_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/signals/refunds/{{refund_uuid}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "signals", "refunds", "{{refund_uuid}}"]
+            },
+            "description": "Sends a provider.refund_result signal to the running RefundWorkflow identified by refund_uuid.\n\nRequires X-Internal-Secret header.\nThe workflow locates itself by the refund UUID (Temporal workflow ID).\nDuplicate signals with the same provider_event_id are safely deduplicated by the workflow."
+          },
+          "response": [
+            {
+              "name": "200 OK — signal accepted",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"message\": \"Signal accepted.\"\n}"
+            },
+            {
+              "name": "401 Unauthorized — missing or wrong X-Internal-Secret",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"message\": \"Unauthorized.\"\n}"
+            },
+            {
+              "name": "404 Not Found — workflow not running for this refund UUID",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"message\": \"Workflow not found.\"\n}"
+            },
+            {
+              "name": "422 Unprocessable — invalid signal_name",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"message\": \"The selected signal_name is invalid.\",\n  \"errors\": {\n    \"signal_name\": [\"The selected signal_name is invalid.\"]\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
     {
       "name": "Infrastructure",
       "item": [
