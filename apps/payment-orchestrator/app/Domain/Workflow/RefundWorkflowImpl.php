@@ -251,6 +251,13 @@ class RefundWorkflowImpl implements RefundWorkflow
         string $lastKnownProviderStatus,
         string $failureReason,
     ): Generator {
+        Log::error('Refund requires reconciliation — manual intervention needed', [
+            'alert' => true,
+            'refund_id' => $input->refundUuid,
+            'correlation_id' => $input->correlationId,
+            'failed_step' => $failedStep,
+        ]);
+
         yield $this->updateStatusActivity->markRequiresReconciliation(
             $input->refundUuid, $input->correlationId, $failedStep,
         );

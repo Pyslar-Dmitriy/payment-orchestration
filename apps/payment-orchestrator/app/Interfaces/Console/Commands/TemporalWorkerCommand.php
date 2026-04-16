@@ -41,13 +41,13 @@ class TemporalWorkerCommand extends Command
             RefundWorkflowImpl::class,
         );
 
-        $worker->registerActivity(app(UpdatePaymentStatusActivityImpl::class));
-        $worker->registerActivity(app(UpdateRefundStatusActivityImpl::class));
-        $worker->registerActivity(app(ProviderCallActivityImpl::class));
-        $worker->registerActivity(app(ProviderStatusQueryActivityImpl::class));
-        $worker->registerActivity(app(LedgerPostActivityImpl::class));
-        $worker->registerActivity(app(MerchantCallbackActivityImpl::class));
-        $worker->registerActivity(app(PublishDomainEventActivityImpl::class));
+        $worker->registerActivity(UpdatePaymentStatusActivityImpl::class, fn () => app(UpdatePaymentStatusActivityImpl::class));
+        $worker->registerActivity(UpdateRefundStatusActivityImpl::class, fn () => app(UpdateRefundStatusActivityImpl::class));
+        $worker->registerActivity(ProviderCallActivityImpl::class);
+        $worker->registerActivity(ProviderStatusQueryActivityImpl::class);
+        $worker->registerActivity(LedgerPostActivityImpl::class);
+        $worker->registerActivity(MerchantCallbackActivityImpl::class);
+        $worker->registerActivity(PublishDomainEventActivityImpl::class);
 
         fwrite(STDERR, "Worker registered. Listening for tasks...\n");
 
