@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Domain\Provider\ProviderRegistryInterface;
+use App\Infrastructure\Provider\Mock\MockProviderAdapter;
 use App\Infrastructure\Provider\ProviderRegistry;
 use Illuminate\Support\ServiceProvider;
 
@@ -24,7 +25,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Adapters are registered by concrete service providers as they are introduced.
-        // MockProvider is registered in TASK-071.
+        /** @var ProviderRegistryInterface $registry */
+        $registry = $this->app->make(ProviderRegistryInterface::class);
+
+        $registry->register(new MockProviderAdapter);
     }
 }
