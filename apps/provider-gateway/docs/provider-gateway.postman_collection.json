@@ -1,0 +1,342 @@
+{
+  "info": {
+    "name": "Provider Gateway (internal)",
+    "_postman_id": "provider-gateway-v1",
+    "description": "Manual test collection for the provider-gateway service.\n\nThis is an internal service — no authentication layer. Requests come exclusively from the payment-orchestrator via Temporal activities.\n\nBase URL is controlled by the `base_url` variable (default: http://localhost:8004).\n\nWorkflow:\n1. Use **Authorize** to submit an authorization (and optional capture) for a payment.\n2. Use **Refund** to submit a refund.\n3. Use **Payment Status** / **Refund Status** to poll the PSP when a webhook has not arrived within the expected window.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8004",
+      "type": "string"
+    },
+    {
+      "key": "payment_uuid",
+      "value": "550e8400-e29b-41d4-a716-446655440000",
+      "type": "string",
+      "description": "UUID of the payment being processed."
+    },
+    {
+      "key": "refund_uuid",
+      "value": "7f3e4a10-9dad-11d1-80b4-00c04fd430c8",
+      "type": "string",
+      "description": "UUID of the refund being processed."
+    },
+    {
+      "key": "correlation_id",
+      "value": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+      "type": "string",
+      "description": "Correlation ID propagated from the originating workflow."
+    },
+    {
+      "key": "provider_key",
+      "value": "mock",
+      "type": "string",
+      "description": "Provider key identifying the PSP adapter to use (e.g. 'mock', 'stripe')."
+    }
+  ],
+  "item": [
+    {
+      "name": "Provider Operations",
+      "item": [
+        {
+          "name": "Authorize (and capture)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Correlation-Id", "value": "{{correlation_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_uuid\": \"{{payment_uuid}}\",\n  \"provider_key\": \"{{provider_key}}\",\n  \"correlation_id\": \"{{correlation_id}}\",\n  \"amount\": 9900,\n  \"currency\": \"USD\",\n  \"country\": \"US\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/provider/authorize",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "provider", "authorize"]
+            },
+            "description": "Submits an authorization request to the selected PSP adapter.\n\nIf the PSP captures atomically (is_async = false, provider_status = 'captured') the handler returns immediately.\nIf the PSP requires a separate capture step it is called automatically before returning.\nIf the PSP is asynchronous (is_async = true) the handler returns pending status and the final result arrives via webhook.\n\nRequired: payment_uuid, provider_key, correlation_id.\nOptional enrichment: amount (cents), currency (ISO 4217), country (ISO 3166-1 alpha-2)."
+          },
+          "response": [
+            {
+              "name": "200 OK — captured synchronously (atomic PSP)",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"provider_reference\": \"mock-ref-001\",\n  \"provider_status\": \"captured\",\n  \"is_async\": false\n}"
+            },
+            {
+              "name": "200 OK — async (awaiting webhook)",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"provider_reference\": \"mock-ref-async-001\",\n  \"provider_status\": \"pending\",\n  \"is_async\": true\n}"
+            },
+            {
+              "name": "422 Unprocessable — missing payment_uuid",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"The payment_uuid field is required.\",\n  \"errors\": {\n    \"payment_uuid\": [\"The payment_uuid field is required.\"]\n  }\n}"
+            },
+            {
+              "name": "422 Unprocessable — provider key not registered",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"No adapter registered for provider key 'unknown'.\"\n}"
+            },
+            {
+              "name": "422 Unprocessable — PSP hard decline",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"Provider declined the request.\",\n  \"provider_code\": \"do_not_honor\"\n}"
+            },
+            {
+              "name": "503 Service Unavailable — transient PSP failure",
+              "status": "Service Unavailable",
+              "code": 503,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"Provider temporarily unavailable.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Refund",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Correlation-Id", "value": "{{correlation_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refund_uuid\": \"{{refund_uuid}}\",\n  \"payment_uuid\": \"{{payment_uuid}}\",\n  \"provider_key\": \"{{provider_key}}\",\n  \"correlation_id\": \"{{correlation_id}}\",\n  \"provider_reference\": \"mock-ref-001\",\n  \"amount\": 5000,\n  \"currency\": \"USD\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/provider/refund",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "provider", "refund"]
+            },
+            "description": "Submits a refund request to the selected PSP adapter.\n\nRequired: refund_uuid, payment_uuid, provider_key, correlation_id.\nOptional: provider_reference (PSP transaction ID from the original authorization), amount (cents), currency."
+          },
+          "response": [
+            {
+              "name": "200 OK — refunded synchronously",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"provider_reference\": \"mock-ref-002\",\n  \"provider_status\": \"refunded\",\n  \"is_async\": false\n}"
+            },
+            {
+              "name": "200 OK — async refund (awaiting webhook)",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"provider_reference\": \"mock-ref-async-002\",\n  \"provider_status\": \"pending\",\n  \"is_async\": true\n}"
+            },
+            {
+              "name": "422 Unprocessable — missing refund_uuid",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"The refund_uuid field is required.\",\n  \"errors\": {\n    \"refund_uuid\": [\"The refund_uuid field is required.\"]\n  }\n}"
+            },
+            {
+              "name": "422 Unprocessable — provider key not registered",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"No adapter registered for provider key 'unknown'.\"\n}"
+            },
+            {
+              "name": "422 Unprocessable — PSP hard decline",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"Provider declined the refund.\",\n  \"provider_code\": \"refund_not_allowed\"\n}"
+            },
+            {
+              "name": "503 Service Unavailable — transient PSP failure",
+              "status": "Service Unavailable",
+              "code": 503,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"Provider temporarily unavailable.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Payment Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Correlation-Id", "value": "{{correlation_id}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/provider/payments/{{payment_uuid}}/status?provider_key={{provider_key}}&correlation_id={{correlation_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "provider", "payments", "{{payment_uuid}}", "status"],
+              "query": [
+                { "key": "provider_key", "value": "{{provider_key}}" },
+                { "key": "correlation_id", "value": "{{correlation_id}}" },
+                { "key": "provider_reference", "value": "mock-ref-001", "disabled": true, "description": "Optional PSP reference; required by some real PSPs to look up status." }
+              ]
+            },
+            "description": "Queries the PSP for the current status of a payment.\n\nUsed by the orchestrator on the webhook timeout recovery path.\n\nRequired query params: provider_key, correlation_id.\nOptional query param: provider_reference (PSP transaction ID). Without it, adapters that require the PSP reference must look it up from the audit log (TASK-072). Mock adapters operate without it."
+          },
+          "response": [
+            {
+              "name": "200 OK — captured",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"provider_status\": \"captured\",\n  \"is_captured\": true,\n  \"is_authorized\": false,\n  \"is_failed\": false\n}"
+            },
+            {
+              "name": "200 OK — authorized (not yet captured)",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"provider_status\": \"authorized\",\n  \"is_captured\": false,\n  \"is_authorized\": true,\n  \"is_failed\": false\n}"
+            },
+            {
+              "name": "200 OK — failed",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"provider_status\": \"failed\",\n  \"is_captured\": false,\n  \"is_authorized\": false,\n  \"is_failed\": true\n}"
+            },
+            {
+              "name": "422 Unprocessable — missing provider_key",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"The provider_key and correlation_id query parameters are required.\"\n}"
+            },
+            {
+              "name": "422 Unprocessable — provider key not registered",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"No adapter registered for provider key 'unknown'.\"\n}"
+            },
+            {
+              "name": "503 Service Unavailable — transient PSP failure",
+              "status": "Service Unavailable",
+              "code": 503,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"Provider temporarily unavailable.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Refund Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Correlation-Id", "value": "{{correlation_id}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/provider/refunds/{{refund_uuid}}/status?provider_key={{provider_key}}&correlation_id={{correlation_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "provider", "refunds", "{{refund_uuid}}", "status"],
+              "query": [
+                { "key": "provider_key", "value": "{{provider_key}}" },
+                { "key": "correlation_id", "value": "{{correlation_id}}" },
+                { "key": "provider_reference", "value": "mock-ref-002", "disabled": true, "description": "Optional PSP reference for the refund transaction." }
+              ]
+            },
+            "description": "Queries the PSP for the current status of a refund.\n\nRequired query params: provider_key, correlation_id.\nOptional query param: provider_reference."
+          },
+          "response": [
+            {
+              "name": "200 OK — refunded",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"provider_status\": \"refunded\",\n  \"is_refunded\": true,\n  \"is_failed\": false\n}"
+            },
+            {
+              "name": "200 OK — failed",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"provider_status\": \"failed\",\n  \"is_refunded\": false,\n  \"is_failed\": true\n}"
+            },
+            {
+              "name": "422 Unprocessable — missing correlation_id",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"The provider_key and correlation_id query parameters are required.\"\n}"
+            },
+            {
+              "name": "422 Unprocessable — provider key not registered",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"No adapter registered for provider key 'unknown'.\"\n}"
+            },
+            {
+              "name": "503 Service Unavailable — transient PSP failure",
+              "status": "Service Unavailable",
+              "code": 503,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"Provider temporarily unavailable.\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Infrastructure",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"status\":\"ok\"}"
+            }
+          ]
+        },
+        {
+          "name": "Ready",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ready",
+              "host": ["{{base_url}}"],
+              "path": ["ready"]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK — all dependencies healthy",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"status\":\"ok\"}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
