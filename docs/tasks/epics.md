@@ -40,7 +40,7 @@
   - [x] [TASK-062 — Implement RefundWorkflow](./epic-06/TASK-062.md)
   - [x] [TASK-063 — Implement activities for provider, ledger, and notifications](./epic-06/TASK-063.md)
   - [x] [TASK-064 — Implement signal handling from webhook normalizer](./epic-06/TASK-064.md)
-  - [ ] [TASK-065 — Implement compensation handling for permanent post-side-effect workflow failures](./epic-06/TASK-065.md)
+  - [x] [TASK-065 — Implement compensation handling for permanent post-side-effect workflow failures](./epic-06/TASK-065.md)
 - #### EPIC-07. Provider Gateway
   - [ ] [TASK-070 — Design a provider abstraction layer](./epic-07/TASK-070.md)
   - [ ] [TASK-071 — Implement MockProvider](./epic-07/TASK-071.md)

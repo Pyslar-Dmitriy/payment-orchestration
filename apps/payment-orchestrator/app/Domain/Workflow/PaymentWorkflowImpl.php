@@ -345,6 +345,13 @@ class PaymentWorkflowImpl implements PaymentWorkflow
         string $lastKnownProviderStatus,
         string $failureReason,
     ): Generator {
+        Log::error('Payment requires reconciliation — manual intervention needed', [
+            'alert' => true,
+            'payment_id' => $input->paymentUuid,
+            'correlation_id' => $input->correlationId,
+            'failed_step' => $failedStep,
+        ]);
+
         yield $this->updateStatusActivity->markRequiresReconciliation(
             $input->paymentUuid, $input->correlationId, $failedStep,
         );

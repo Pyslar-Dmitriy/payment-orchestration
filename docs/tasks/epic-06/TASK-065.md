@@ -78,3 +78,41 @@ Document the steps an operator follows:
 - The `ERROR` alert log is emitted.
 - A runbook exists in `docs/runbooks/reconciliation-runbook.md`.
 - Unit/integration tests cover the compensation path (mock a permanently failing ledger activity after a successful provider response).
+
+## Result
+
+### What was implemented
+
+The compensation handling path (ADR-010 Class B/C) was already structurally present from prior tasks. This task completed the remaining three requirements:
+
+**1. `ERROR` alert log in both workflow implementations**
+
+Added `Log::error('... requires reconciliation — manual intervention needed', ['alert' => true, ...])` to `handleClassBFailure` in:
+- `app/Domain/Workflow/PaymentWorkflowImpl.php` — includes `payment_id`, `correlation_id`, `failed_step`
+- `app/Domain/Workflow/RefundWorkflowImpl.php` — includes `refund_id`, `correlation_id`, `failed_step`
+
+The log fires synchronously before the activity yields, so it is emitted even if the status-transition activity itself subsequently fails.
+
+**2. Compensation path tests**
+
+Two new test files, each covering:
+- `handleClassBFailure` calls `markRequiresReconciliation` with correct arguments
+- `handleClassBFailure` calls `publishPaymentRequiresReconciliation` / `publishRefundRequiresReconciliation` with correct arguments
+- `handleClassBFailure` emits `error` log with `alert: true` and the correct context fields
+- `handleClassBFailure` never calls `markFailed` (verifies wrong class is not triggered)
+- `proceedToCaptureAndLedger` / `proceedToLedgerAndCallback` triggers Class B (not Class A) when ledger throws `ActivityFailure` after confirmed capture/refund
+- Happy path through the same methods does not trigger Class B compensation
+
+Files:
+- `tests/Unit/Domain/Workflow/PaymentWorkflowCompensationTest.php`
+- `tests/Unit/Domain/Workflow/RefundWorkflowCompensationTest.php`
+
+Also fixed a pre-existing autoloader issue in the container where `temporal/sdk` was missing from the PSR-4 map — this also unblocked 6 previously-failing feature tests.
+
+**3. Operator runbook**
+
+`docs/runbooks/reconciliation-runbook.md` — covers how to identify affected records (via Kafka events, DB query, or structured log search), and step-by-step resolution procedures for each `failed_step` value (`ledger_post`, `ledger_post_refund`, `provider_status_query`). Includes idempotency key formats, safety notes, and escalation guidance.
+
+### No deviations from spec
+
+The task spec called for `refund_id` in the runbook/events; the workflow code uses `refundUuid` internally and the failed step string is `ledger_post_refund` (existing from prior task — more descriptive than the spec's `ledger_refund`). The runbook documents the actual string values from the code.
