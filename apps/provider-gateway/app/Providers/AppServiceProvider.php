@@ -2,7 +2,11 @@
 
 namespace App\Providers;
 
+use App\Domain\Provider\ProviderAdapterInterface;
 use App\Domain\Provider\ProviderRegistryInterface;
+use App\Infrastructure\Provider\Audit\AuditingProviderAdapter;
+use App\Infrastructure\Provider\Audit\ProviderAuditLogger;
+use App\Infrastructure\Provider\Audit\ProviderAuditLoggerInterface;
 use App\Infrastructure\Provider\Mock\MockProviderAdapter;
 use App\Infrastructure\Provider\ProviderRegistry;
 use Illuminate\Support\ServiceProvider;
@@ -15,6 +19,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(ProviderRegistryInterface::class, ProviderRegistry::class);
+        $this->app->singleton(ProviderAuditLoggerInterface::class, ProviderAuditLogger::class);
     }
 
     /**
@@ -22,12 +27,19 @@ class AppServiceProvider extends ServiceProvider
      *
      * PSP adapters are registered here. To add a new provider, implement
      * ProviderAdapterInterface and call $registry->register(new MyAdapter(...)).
+     * Each adapter is automatically wrapped with AuditingProviderAdapter so all
+     * provider calls are persisted to the provider_audit_logs table.
      */
     public function boot(): void
     {
         /** @var ProviderRegistryInterface $registry */
         $registry = $this->app->make(ProviderRegistryInterface::class);
 
-        $registry->register(new MockProviderAdapter);
+        $registry->register($this->audited(new MockProviderAdapter));
+    }
+
+    private function audited(ProviderAdapterInterface $adapter): ProviderAdapterInterface
+    {
+        return new AuditingProviderAdapter($adapter, $this->app->make(ProviderAuditLoggerInterface::class));
     }
 }
