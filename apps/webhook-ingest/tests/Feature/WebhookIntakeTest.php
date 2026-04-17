@@ -293,8 +293,7 @@ class WebhookIntakeTest extends TestCase
         $this->call('POST', '/api/webhooks/mock', [], [], [], $serverVars, self::PAYLOAD);
 
         Log::shouldHaveReceived('info')
-            ->withArgs(fn (string $message, array $context): bool =>
-                $message === 'Duplicate webhook received — skipping'
+            ->withArgs(fn (string $message, array $context): bool => $message === 'Duplicate webhook received — skipping'
                 && $context['provider'] === 'mock'
                 && $context['event_id'] === self::EVENT_ID,
             )
