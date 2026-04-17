@@ -35,3 +35,34 @@ Automated circuit breaking is **not in scope for v1**. The `available` flag is t
 - a fallback provider is selected when the primary returns a hard error;
 - `NoProviderAvailable` is returned (not a runtime exception) when no provider matches;
 - the routing strategy is unit-testable in isolation.
+
+## Result
+
+### Files created
+- `config/providers.php` — routing rules for each provider (key, currencies, countries, merchant_types, priority, available)
+- `app/Domain/Provider/ProviderRoutingConfig.php` — immutable value object for per-provider routing metadata
+- `app/Domain/Provider/DTO/RoutingRequest.php` — routing input DTO (currency, country, merchantType, excludedProviderKeys)
+- `app/Domain/Provider/Exception/NoProviderAvailableException.php` — typed domain exception; not a runtime error
+- `app/Domain/Provider/ProviderRouter.php` — pure routing algorithm; no I/O or framework dependencies; fully unit-testable
+- `app/Domain/Provider/ProviderRoutingConfigRepositoryInterface.php` — repository interface with `all()`, `find()`, `setAvailability()`
+- `app/Infrastructure/Provider/Routing/ConfigProviderRoutingConfigRepository.php` — reads `config('providers.routing')` and merges runtime availability overrides from the Laravel cache (`provider_availability:{key}`)
+- `app/Interfaces/Http/Controllers/ProviderRouteController.php` — `POST /api/v1/provider/route`
+- `app/Interfaces/Http/Requests/ProviderRouteRequest.php` — validates currency (size:3), country (size:2), optional merchant_type/excluded_provider_keys
+- `app/Interfaces/Http/Controllers/ProviderAvailabilityController.php` — `PATCH /api/internal/providers/{key}/availability`
+- `app/Interfaces/Http/Requests/ProviderAvailabilityRequest.php` — validates available (boolean, required)
+- `app/Http/Middleware/InternalNetworkMiddleware.php` — restricts the admin endpoint to loopback and private RFC-1918 ranges (10/8, 172.16/12, 192.168/16)
+
+### Files modified
+- `routes/api.php` — added `POST /v1/provider/route` and `PATCH /internal/providers/{key}/availability`
+- `app/Providers/AppServiceProvider.php` — bound `ProviderRoutingConfigRepositoryInterface` → `ConfigProviderRoutingConfigRepository`
+- `docs/provider-gateway.postman_collection.json` — added Routing group with happy path and 4xx examples
+
+### Tests
+- `tests/Unit/Domain/Provider/ProviderRouterTest.php` — 20 unit tests for the pure routing algorithm (all filter dimensions, priority ordering, exclusion, edge cases)
+- `tests/Feature/Http/ProviderRouteTest.php` — 12 feature tests for `POST /api/v1/provider/route`
+- `tests/Feature/Http/ProviderAvailabilityTest.php` — 9 feature tests for `PATCH /api/internal/providers/{key}/availability` including network restriction
+
+### Design decisions
+- **Runtime toggle via cache**: availability overrides are stored with key `provider_availability:{key}` in the Laravel cache (24-hour TTL). The config value is the fallback when no cache entry exists. Cache-clearing (`php artisan cache:clear`) resets all overrides to config defaults.
+- **Admin endpoint chosen over hot-reload**: the `PATCH /internal/providers/{key}/availability` approach is easier to test and audit than file-polling. Access is restricted to private network ranges via `InternalNetworkMiddleware`.
+- **Fallback routing**: the `excludedProviderKeys` field on `RoutingRequest` supports the fallback-on-hard-failure pattern described in ADR-011 — the Temporal workflow passes the failed provider key when retrying the routing activity.

@@ -292,6 +292,116 @@
       ]
     },
     {
+      "name": "Routing",
+      "item": [
+        {
+          "name": "Select Provider (Route)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currency\": \"USD\",\n  \"country\": \"US\",\n  \"merchant_type\": null,\n  \"excluded_provider_keys\": []\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/provider/route",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "provider", "route"]
+            },
+            "description": "Selects the best available provider for a payment routing request.\n\nThe Temporal orchestrator calls this activity before submitting an authorization. Returns the provider key to use.\n\nFor fallback routing after a hard failure, pass the failed provider in `excluded_provider_keys` to skip it.\n\nRequired: currency (ISO 4217, 3 chars), country (ISO 3166-1 alpha-2, 2 chars).\nOptional: merchant_type (string), excluded_provider_keys (array of provider keys to skip)."
+          },
+          "response": [
+            {
+              "name": "200 OK — provider selected",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"provider_key\": \"mock\"\n}"
+            },
+            {
+              "name": "200 OK — fallback provider selected (primary excluded)",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"provider_key\": \"fallback\"\n}"
+            },
+            {
+              "name": "422 Unprocessable — no provider available",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"No provider available for the requested routing parameters.\",\n  \"error\": \"no_provider_available\"\n}"
+            },
+            {
+              "name": "422 Unprocessable — missing currency",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"The currency field is required.\",\n  \"errors\": {\n    \"currency\": [\"The currency field is required.\"]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Provider Availability (Internal)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"available\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/internal/providers/{{provider_key}}/availability",
+              "host": ["{{base_url}}"],
+              "path": ["api", "internal", "providers", "{{provider_key}}", "availability"]
+            },
+            "description": "Runtime toggle for provider availability.\n\n**Internal only** — restricted to the Docker private network (10.x, 172.16–31.x, 192.168.x, 127.0.0.1). Returns 403 from any external IP.\n\nSets `available = false` to disable a provider from all routing decisions immediately without a deployment. Persisted in cache with a 24-hour TTL. Setting `available = true` re-enables the provider.\n\nThis is the manual circuit breaker mechanism. Automated circuit breaking is deferred to post-v1 (see ADR-011)."
+          },
+          "response": [
+            {
+              "name": "200 OK — provider disabled",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"provider_key\": \"mock\",\n  \"available\": false\n}"
+            },
+            {
+              "name": "200 OK — provider re-enabled",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"provider_key\": \"mock\",\n  \"available\": true\n}"
+            },
+            {
+              "name": "403 Forbidden — request from external network",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"Forbidden.\"\n}"
+            },
+            {
+              "name": "404 Not Found — provider key not configured",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"Provider 'stripe' is not configured.\"\n}"
+            },
+            {
+              "name": "422 Unprocessable — missing available field",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"The available field is required.\",\n  \"errors\": {\n    \"available\": [\"The available field is required.\"]\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Infrastructure",
       "item": [
         {
