@@ -4,9 +4,11 @@ namespace App\Infrastructure\Persistence;
 
 use Illuminate\Database\Eloquent\Model;
 
-class RawWebhook extends Model
+class WebhookEventRaw extends Model
 {
     public $timestamps = false;
+
+    protected $table = 'webhook_events_raw';
 
     protected $primaryKey = 'id';
 
@@ -22,8 +24,8 @@ class RawWebhook extends Model
         'payload',
         'signature_verified',
         'correlation_id',
-        'enqueued_at',
-        'created_at',
+        'processing_state',
+        'received_at',
     ];
 
     protected function casts(): array
@@ -31,8 +33,7 @@ class RawWebhook extends Model
         return [
             'headers' => 'array',
             'signature_verified' => 'boolean',
-            'enqueued_at' => 'datetime',
-            'created_at' => 'datetime',
+            'received_at' => 'datetime',
         ];
     }
 }

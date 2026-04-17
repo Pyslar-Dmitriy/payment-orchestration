@@ -2,10 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Infrastructure\Persistence\RawWebhook;
+use App\Infrastructure\Persistence\WebhookEventRaw;
 use App\Infrastructure\Queue\PublishRawWebhookJob;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -53,7 +54,7 @@ class WebhookIntakeTest extends TestCase
 
         $response->assertStatus(200)->assertJson(['status' => 'received']);
 
-        $this->assertDatabaseHas('raw_webhooks', [
+        $this->assertDatabaseHas('webhook_events_raw', [
             'provider' => 'mock',
             'event_id' => self::EVENT_ID,
             'payload' => self::PAYLOAD,
@@ -76,7 +77,7 @@ class WebhookIntakeTest extends TestCase
             self::PAYLOAD,
         );
 
-        $stored = RawWebhook::where('provider', 'mock')->where('event_id', self::EVENT_ID)->first();
+        $stored = WebhookEventRaw::where('provider', 'mock')->where('event_id', self::EVENT_ID)->first();
         $this->assertNotNull($stored);
 
         Queue::assertPushed(PublishRawWebhookJob::class, function (PublishRawWebhookJob $job) use ($stored): bool {
@@ -100,7 +101,7 @@ class WebhookIntakeTest extends TestCase
 
         $response->assertStatus(200);
 
-        $this->assertDatabaseHas('raw_webhooks', [
+        $this->assertDatabaseHas('webhook_events_raw', [
             'provider' => 'mock',
             'signature_verified' => false,
         ]);
@@ -121,9 +122,78 @@ class WebhookIntakeTest extends TestCase
             self::PAYLOAD,
         );
 
-        $this->assertDatabaseHas('raw_webhooks', [
+        $this->assertDatabaseHas('webhook_events_raw', [
             'provider' => 'mock',
             'correlation_id' => $correlationId,
+        ]);
+    }
+
+    // -----------------------------------------------------------------------
+    // Processing state and attempt tracking
+    // -----------------------------------------------------------------------
+
+    public function test_processing_state_is_enqueued_after_dispatch(): void
+    {
+        Queue::fake();
+
+        $this->call(
+            'POST',
+            '/api/webhooks/mock',
+            [],
+            [],
+            [],
+            ['HTTP_X-EVENT-ID' => self::EVENT_ID, 'CONTENT_TYPE' => 'application/json'],
+            self::PAYLOAD,
+        );
+
+        $this->assertDatabaseHas('webhook_events_raw', [
+            'provider' => 'mock',
+            'event_id' => self::EVENT_ID,
+            'processing_state' => 'enqueued',
+        ]);
+    }
+
+    public function test_records_processing_attempt_after_enqueue(): void
+    {
+        Queue::fake();
+
+        $this->call(
+            'POST',
+            '/api/webhooks/mock',
+            [],
+            [],
+            [],
+            ['HTTP_X-EVENT-ID' => self::EVENT_ID, 'CONTENT_TYPE' => 'application/json'],
+            self::PAYLOAD,
+        );
+
+        $event = WebhookEventRaw::where('provider', 'mock')->where('event_id', self::EVENT_ID)->first();
+        $this->assertNotNull($event);
+
+        $this->assertDatabaseHas('webhook_processing_attempts', [
+            'raw_event_id' => $event->id,
+            'state' => 'enqueued',
+            'attempt_number' => 1,
+        ]);
+    }
+
+    public function test_records_dedup_entry_on_first_event(): void
+    {
+        Queue::fake();
+
+        $this->call(
+            'POST',
+            '/api/webhooks/mock',
+            [],
+            [],
+            [],
+            ['HTTP_X-EVENT-ID' => self::EVENT_ID, 'CONTENT_TYPE' => 'application/json'],
+            self::PAYLOAD,
+        );
+
+        $this->assertDatabaseHas('webhook_dedup', [
+            'provider' => 'mock',
+            'event_id' => self::EVENT_ID,
         ]);
     }
 
@@ -154,7 +224,7 @@ class WebhookIntakeTest extends TestCase
 
         $response->assertStatus(200);
 
-        $this->assertDatabaseHas('raw_webhooks', [
+        $this->assertDatabaseHas('webhook_events_raw', [
             'provider' => 'mock',
             'signature_verified' => true,
         ]);
@@ -274,7 +344,7 @@ class WebhookIntakeTest extends TestCase
 
         $response->assertStatus(200);
 
-        $this->assertSame(1, RawWebhook::where('provider', 'mock')->where('event_id', self::EVENT_ID)->count());
+        $this->assertSame(1, WebhookEventRaw::where('provider', 'mock')->where('event_id', self::EVENT_ID)->count());
 
         Queue::assertPushed(PublishRawWebhookJob::class, 1);
     }
@@ -298,5 +368,25 @@ class WebhookIntakeTest extends TestCase
                 && $context['event_id'] === self::EVENT_ID,
             )
             ->once();
+    }
+
+    public function test_duplicate_event_does_not_create_extra_dedup_or_attempt_records(): void
+    {
+        Queue::fake();
+
+        $serverVars = [
+            'HTTP_X-EVENT-ID' => self::EVENT_ID,
+            'CONTENT_TYPE' => 'application/json',
+        ];
+
+        $this->call('POST', '/api/webhooks/mock', [], [], [], $serverVars, self::PAYLOAD);
+        $this->call('POST', '/api/webhooks/mock', [], [], [], $serverVars, self::PAYLOAD);
+
+        $this->assertSame(1, DB::table('webhook_dedup')
+            ->where('provider', 'mock')->where('event_id', self::EVENT_ID)->count());
+
+        $event = WebhookEventRaw::where('provider', 'mock')->where('event_id', self::EVENT_ID)->first();
+        $this->assertSame(1, DB::table('webhook_processing_attempts')
+            ->where('raw_event_id', $event->id)->count());
     }
 }
