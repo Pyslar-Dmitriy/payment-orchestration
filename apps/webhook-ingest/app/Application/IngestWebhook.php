@@ -95,15 +95,17 @@ class IngestWebhook
 
         dispatch(new PublishRawWebhookJob($id));
 
-        DB::table('webhook_events_raw')->where('id', $id)->update(['processing_state' => 'enqueued']);
+        DB::transaction(function () use ($id, $now): void {
+            DB::table('webhook_events_raw')->where('id', $id)->update(['processing_state' => 'enqueued']);
 
-        DB::table('webhook_processing_attempts')->insert([
-            'id' => Str::uuid()->toString(),
-            'raw_event_id' => $id,
-            'state' => 'enqueued',
-            'attempt_number' => 1,
-            'created_at' => $now,
-        ]);
+            DB::table('webhook_processing_attempts')->insert([
+                'id' => Str::uuid()->toString(),
+                'raw_event_id' => $id,
+                'state' => 'enqueued',
+                'attempt_number' => 1,
+                'created_at' => $now,
+            ]);
+        });
 
         Log::info('Webhook ingested', [
             'provider' => $provider,
