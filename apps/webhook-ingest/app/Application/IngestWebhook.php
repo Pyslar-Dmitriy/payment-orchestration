@@ -54,20 +54,35 @@ class IngestWebhook
         }
 
         $id = Str::uuid()->toString();
+        $now = now();
 
-        // insertOrIgnore translates to INSERT … ON CONFLICT DO NOTHING, which
-        // returns 0 for duplicates without raising an exception — safe under
-        // any outer database transaction (e.g. RefreshDatabase in tests).
-        $inserted = DB::table('raw_webhooks')->insertOrIgnore([
-            'id' => $id,
-            'provider' => $provider,
-            'event_id' => $eventId,
-            'headers' => json_encode($headers),
-            'payload' => $rawBody,
-            'signature_verified' => $signatureVerified,
-            'correlation_id' => $correlationId,
-            'created_at' => now(),
-        ]);
+        $inserted = DB::transaction(function () use ($id, $provider, $eventId, $headers, $rawBody, $signatureVerified, $correlationId, $now): int {
+            $deduped = DB::table('webhook_dedup')->insertOrIgnore([
+                'id' => Str::uuid()->toString(),
+                'provider' => $provider,
+                'event_id' => $eventId,
+                'raw_event_id' => $id,
+                'created_at' => $now,
+            ]);
+
+            if ($deduped === 0) {
+                return 0;
+            }
+
+            DB::table('webhook_events_raw')->insert([
+                'id' => $id,
+                'provider' => $provider,
+                'event_id' => $eventId,
+                'headers' => json_encode($headers),
+                'payload' => $rawBody,
+                'signature_verified' => $signatureVerified,
+                'correlation_id' => $correlationId,
+                'processing_state' => 'received',
+                'received_at' => $now,
+            ]);
+
+            return 1;
+        });
 
         if ($inserted === 0) {
             Log::info('Duplicate webhook received — skipping', [
@@ -79,6 +94,16 @@ class IngestWebhook
         }
 
         dispatch(new PublishRawWebhookJob($id));
+
+        DB::table('webhook_events_raw')->where('id', $id)->update(['processing_state' => 'enqueued']);
+
+        DB::table('webhook_processing_attempts')->insert([
+            'id' => Str::uuid()->toString(),
+            'raw_event_id' => $id,
+            'state' => 'enqueued',
+            'attempt_number' => 1,
+            'created_at' => $now,
+        ]);
 
         Log::info('Webhook ingested', [
             'provider' => $provider,
