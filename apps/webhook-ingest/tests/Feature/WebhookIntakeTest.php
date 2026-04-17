@@ -6,6 +6,7 @@ use App\Infrastructure\Persistence\RawWebhook;
 use App\Infrastructure\Queue\PublishRawWebhookJob;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
@@ -276,5 +277,27 @@ class WebhookIntakeTest extends TestCase
         $this->assertSame(1, RawWebhook::where('provider', 'mock')->where('event_id', self::EVENT_ID)->count());
 
         Queue::assertPushed(PublishRawWebhookJob::class, 1);
+    }
+
+    public function test_duplicate_event_logs_deduplication(): void
+    {
+        Queue::fake();
+        Log::spy();
+
+        $serverVars = [
+            'HTTP_X-EVENT-ID' => self::EVENT_ID,
+            'CONTENT_TYPE' => 'application/json',
+        ];
+
+        $this->call('POST', '/api/webhooks/mock', [], [], [], $serverVars, self::PAYLOAD);
+        $this->call('POST', '/api/webhooks/mock', [], [], [], $serverVars, self::PAYLOAD);
+
+        Log::shouldHaveReceived('info')
+            ->withArgs(fn (string $message, array $context): bool =>
+                $message === 'Duplicate webhook received — skipping'
+                && $context['provider'] === 'mock'
+                && $context['event_id'] === self::EVENT_ID,
+            )
+            ->once();
     }
 }
