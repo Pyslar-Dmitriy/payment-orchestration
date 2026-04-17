@@ -44,7 +44,7 @@
 - #### EPIC-07. Provider Gateway
   - [x] [TASK-070 — Design a provider abstraction layer](./epic-07/TASK-070.md)
   - [x] [TASK-071 — Implement MockProvider](./epic-07/TASK-071.md)
-  - [ ] [TASK-072 — Implement provider request/response audit](./epic-07/TASK-072.md)
+  - [x] [TASK-072 — Implement provider request/response audit](./epic-07/TASK-072.md)
   - [ ] [TASK-073 — Implement provider routing strategy](./epic-07/TASK-073.md)
 - #### EPIC-08. Webhook Ingest
   - [ ] [TASK-080 — Implement a webhook receiving endpoint](./epic-08/TASK-080.md)

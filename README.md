@@ -1,5 +1,4 @@
 # Payment orchestration
-_A personal project to improve skills in working with microservices and high loads_
 
 Microservice-based payment orchestration platform for merchants with asynchronous payment processing, webhook ingestion, provider routing, internal ledger, refund workflow, idempotency protection, outbox pattern, and event streaming for analytics and audit.
 
