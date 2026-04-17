@@ -47,7 +47,7 @@
   - [x] [TASK-072 — Implement provider request/response audit](./epic-07/TASK-072.md)
   - [x] [TASK-073 — Implement provider routing strategy](./epic-07/TASK-073.md)
 - #### EPIC-08. Webhook Ingest
-  - [ ] [TASK-080 — Implement a webhook receiving endpoint](./epic-08/TASK-080.md)
+  - [x] [TASK-080 — Implement a webhook receiving endpoint](./epic-08/TASK-080.md)
   - [ ] [TASK-081 — Implement deduplication of incoming webhooks](./epic-08/TASK-081.md)
   - [ ] [TASK-082 — Preserve raw payload and processing state](./epic-08/TASK-082.md)
   - [ ] [TASK-083 — Publish a raw webhook task to RabbitMQ](./epic-08/TASK-083.md)

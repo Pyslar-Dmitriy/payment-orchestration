@@ -1,0 +1,214 @@
+{
+  "info": {
+    "name": "webhook-ingest",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8005"
+    },
+    {
+      "key": "provider",
+      "value": "mock"
+    },
+    {
+      "key": "signing_secret",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /api/health",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/health"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\"status\":\"ok\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Webhook Intake",
+      "item": [
+        {
+          "name": "POST /api/webhooks/{provider} — accepted",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/webhooks/{{provider}}",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Event-ID",
+                "value": "evt_20240417_001",
+                "description": "Provider-assigned event identifier (dedup key)"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "550e8400-e29b-41d4-a716-446655440000",
+                "description": "Optional — generated if absent"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\":\"payment.completed\",\"id\":\"evt_20240417_001\",\"amount\":1000}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "response": [
+            {
+              "name": "200 Received",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" },
+                { "key": "X-Correlation-ID", "value": "550e8400-e29b-41d4-a716-446655440000" }
+              ],
+              "body": "{\"status\":\"received\"}"
+            }
+          ]
+        },
+        {
+          "name": "POST /api/webhooks/{provider} — with valid signature",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/webhooks/{{provider}}",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Event-ID",
+                "value": "evt_signed_001"
+              },
+              {
+                "key": "X-Webhook-Signature",
+                "value": "<hmac-sha256-hex>",
+                "description": "HMAC-SHA256 of raw body using the provider signing secret"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\":\"payment.completed\",\"id\":\"evt_signed_001\"}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "response": [
+            {
+              "name": "200 Received",
+              "status": "OK",
+              "code": 200,
+              "body": "{\"status\":\"received\"}"
+            }
+          ]
+        },
+        {
+          "name": "POST /api/webhooks/{provider} — unknown provider (404)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/webhooks/unknown-provider",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Event-ID", "value": "evt_001" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\":\"test\"}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "response": [
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "body": "{\"message\":\"Not found.\"}"
+            }
+          ]
+        },
+        {
+          "name": "POST /api/webhooks/{provider} — missing event ID (422)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/webhooks/{{provider}}",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\":\"payment.completed\"}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "response": [
+            {
+              "name": "422 Missing Event ID",
+              "status": "Unprocessable Content",
+              "code": 422,
+              "body": "{\"message\":\"Missing event identifier.\"}"
+            }
+          ]
+        },
+        {
+          "name": "POST /api/webhooks/{provider} — invalid signature (401)",
+          "description": "Requires WEBHOOK_SIGNING_SECRET_MOCK (or the relevant provider secret) to be set to a non-empty value. With an empty signing_secret the signature check is skipped and the request succeeds with 200.",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/webhooks/{{provider}}",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Event-ID", "value": "evt_001" },
+              { "key": "X-Webhook-Signature", "value": "invalidsignature", "description": "Any value that does not match HMAC-SHA256(body, signing_secret)" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\":\"payment.completed\"}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "response": [
+            {
+              "name": "401 Unauthorized",
+              "status": "Unauthorized",
+              "code": 401,
+              "body": "{\"message\":\"Unauthorized.\"}"
+            }
+          ]
+        },
+        {
+          "name": "POST /api/webhooks/{provider} — empty body (422)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/webhooks/{{provider}}",
+            "header": [
+              { "key": "X-Event-ID", "value": "evt_001" }
+            ],
+            "body": { "mode": "raw", "raw": "" }
+          },
+          "response": [
+            {
+              "name": "422 Empty Payload",
+              "status": "Unprocessable Content",
+              "code": 422,
+              "body": "{\"message\":\"Payload must not be empty.\"}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
