@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'payment_orchestrator' => [
+        'base_url' => env('PAYMENT_ORCHESTRATOR_BASE_URL', 'http://nginx:8003'),
+        'internal_secret' => env('INTERNAL_SERVICE_SECRET'),
+    ],
+
 ];

@@ -38,12 +38,23 @@ final class MockProviderNormalizer implements ProviderNormalizerInterface
             throw new UnmappableWebhookException('Mock provider webhook is missing payment_reference');
         }
 
+        if (! str_starts_with($providerReference, 'mock-')) {
+            throw new UnmappableWebhookException('Mock provider payment_reference must start with mock-');
+        }
+
+        $paymentId = substr($providerReference, 5);
+
+        if (! preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $paymentId)) {
+            throw new UnmappableWebhookException('Mock provider payment_reference does not contain a valid UUID after mock- prefix');
+        }
+
         if (! isset(self::STATUS_MAP[$rawStatus])) {
             throw new UnmappableWebhookException("Unknown mock provider status: {$rawStatus}");
         }
 
         return new NormalizedWebhookEvent(
             provider: 'mock',
+            paymentId: $paymentId,
             providerEventId: $providerEventId,
             providerReference: $providerReference,
             eventType: $eventType,

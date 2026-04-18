@@ -10,6 +10,8 @@ class MockProviderNormalizerTest extends TestCase
 {
     private MockProviderNormalizer $normalizer;
 
+    private const PAYMENT_UUID = '00000000-0000-0000-0000-000000000001';
+
     protected function setUp(): void
     {
         $this->normalizer = new MockProviderNormalizer;
@@ -95,9 +97,18 @@ class MockProviderNormalizerTest extends TestCase
 
     public function test_propagates_provider_reference(): void
     {
-        $event = $this->normalizer->normalize($this->payload('CAPTURED', paymentRef: 'mock-pay-xyz'));
+        $uuid = '00000000-0000-0000-0000-000000000099';
+        $event = $this->normalizer->normalize($this->payload('CAPTURED', paymentUuid: $uuid));
 
-        $this->assertSame('mock-pay-xyz', $event->providerReference);
+        $this->assertSame('mock-'.$uuid, $event->providerReference);
+    }
+
+    public function test_propagates_payment_id(): void
+    {
+        $uuid = '00000000-0000-0000-0000-000000000099';
+        $event = $this->normalizer->normalize($this->payload('CAPTURED', paymentUuid: $uuid));
+
+        $this->assertSame($uuid, $event->paymentId);
     }
 
     public function test_propagates_event_type(): void
@@ -173,6 +184,28 @@ class MockProviderNormalizerTest extends TestCase
         $this->normalizer->normalize($this->payload(''));
     }
 
+    public function test_throws_when_payment_reference_missing_mock_prefix(): void
+    {
+        $this->expectException(UnmappableWebhookException::class);
+        $this->expectExceptionMessage('mock-');
+
+        $payload = $this->payload('CAPTURED');
+        $payload['payment_reference'] = self::PAYMENT_UUID;
+
+        $this->normalizer->normalize($payload);
+    }
+
+    public function test_throws_when_payment_reference_suffix_is_not_a_uuid(): void
+    {
+        $this->expectException(UnmappableWebhookException::class);
+        $this->expectExceptionMessage('UUID');
+
+        $payload = $this->payload('CAPTURED');
+        $payload['payment_reference'] = 'mock-not-a-uuid';
+
+        $this->normalizer->normalize($payload);
+    }
+
     // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
@@ -183,12 +216,12 @@ class MockProviderNormalizerTest extends TestCase
     private function payload(
         string $status,
         string $eventId = 'mock-evt-001',
-        string $paymentRef = 'mock-pay-001',
+        string $paymentUuid = self::PAYMENT_UUID,
         string $eventType = 'payment.captured',
     ): array {
         return [
             'event_id' => $eventId,
-            'payment_reference' => $paymentRef,
+            'payment_reference' => 'mock-'.$paymentUuid,
             'event_type' => $eventType,
             'status' => $status,
         ];

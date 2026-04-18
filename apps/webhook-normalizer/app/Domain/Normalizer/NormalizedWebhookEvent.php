@@ -11,6 +11,7 @@ final class NormalizedWebhookEvent
      */
     public function __construct(
         public readonly string $provider,
+        public readonly string $paymentId,
         public readonly string $providerEventId,
         public readonly string $providerReference,
         public readonly string $eventType,

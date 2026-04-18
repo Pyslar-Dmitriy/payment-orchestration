@@ -5,12 +5,17 @@ namespace App\Application;
 use App\Domain\Normalizer\NormalizedWebhookEvent;
 use App\Domain\Normalizer\ProviderNormalizerRegistry;
 use App\Domain\Normalizer\UnmappableWebhookException;
+use App\Domain\Signal\DeadWorkflowException;
+use App\Domain\Signal\TemporalSignalDispatcherInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 final class ProcessRawWebhook
 {
-    public function __construct(private readonly ProviderNormalizerRegistry $normalizerRegistry) {}
+    public function __construct(
+        private readonly ProviderNormalizerRegistry $normalizerRegistry,
+        private readonly TemporalSignalDispatcherInterface $signalDispatcher,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $payload
@@ -34,12 +39,15 @@ final class ProcessRawWebhook
         $eventId = (string) ($payload['event_id'] ?? '');
         $correlationId = (string) ($payload['correlation_id'] ?? '');
 
-        // TASK-092: fetch the raw provider body from webhook-ingest via internal HTTP,
-        // then pass it to $this->normalizerRegistry->normalize($provider, $rawProviderBody).
-        // For now, normalization is exercised via the registry once the body is available.
         $normalizedEvent = $this->tryNormalize($provider, $payload);
 
-        // TASK-092: signal Temporal workflow with $normalizedEvent
+        // Signal Temporal before committing inbox. If this throws a transient error
+        // the exception propagates, the message is requeued, and the inbox row is
+        // never inserted — guaranteeing at-least-once delivery without lost signals.
+        if ($normalizedEvent !== null) {
+            $this->dispatchSignal($normalizedEvent, $correlationId);
+        }
+
         // TASK-093: publish normalized Kafka event with $normalizedEvent
 
         $now = now();
@@ -52,7 +60,7 @@ final class ProcessRawWebhook
             ]);
         });
 
-        Log::info('Raw webhook received by normalizer', [
+        Log::info('Raw webhook processed by normalizer', [
             'message_id' => $messageId,
             'raw_event_id' => $rawEventId,
             'provider' => $provider,
@@ -60,6 +68,23 @@ final class ProcessRawWebhook
             'correlation_id' => $correlationId,
             'internal_status' => $normalizedEvent?->internalStatus,
         ]);
+    }
+
+    private function dispatchSignal(NormalizedWebhookEvent $event, string $correlationId): void
+    {
+        try {
+            $this->signalDispatcher->dispatch($event, $correlationId);
+        } catch (DeadWorkflowException $e) {
+            // Workflow is gone — log and continue. TASK-094 handles publishing
+            // the WebhookSignalUndeliverable Kafka event.
+            Log::warning('Temporal workflow not found for normalized webhook — signal undeliverable', [
+                'payment_id' => $event->paymentId,
+                'provider_event_id' => $event->providerEventId,
+                'provider' => $event->provider,
+                'correlation_id' => $correlationId,
+            ]);
+        }
+        // Transient RuntimeExceptions propagate — message will be requeued.
     }
 
     /**

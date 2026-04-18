@@ -11,13 +11,15 @@ use PHPUnit\Framework\TestCase;
 
 class ProviderNormalizerRegistryTest extends TestCase
 {
+    private const PAYMENT_UUID = '00000000-0000-0000-0000-000000000001';
+
     public function test_dispatches_to_registered_normalizer(): void
     {
         $registry = new ProviderNormalizerRegistry([new MockProviderNormalizer]);
 
         $event = $registry->normalize('mock', [
             'event_id' => 'mock-evt-001',
-            'payment_reference' => 'mock-pay-001',
+            'payment_reference' => 'mock-'.self::PAYMENT_UUID,
             'event_type' => 'payment.captured',
             'status' => 'CAPTURED',
         ]);
@@ -58,6 +60,7 @@ class ProviderNormalizerRegistryTest extends TestCase
             {
                 return new NormalizedWebhookEvent(
                     provider: 'stub',
+                    paymentId: '00000000-0000-0000-0000-000000000099',
                     providerEventId: 'stub-evt-1',
                     providerReference: 'stub-ref-1',
                     eventType: 'payment.settled',
@@ -75,7 +78,7 @@ class ProviderNormalizerRegistryTest extends TestCase
 
         $mockEvent = $registry->normalize('mock', [
             'event_id' => 'mock-evt-001',
-            'payment_reference' => 'mock-pay-001',
+            'payment_reference' => 'mock-'.self::PAYMENT_UUID,
             'event_type' => 'payment.captured',
             'status' => 'AUTHORIZED',
         ]);
