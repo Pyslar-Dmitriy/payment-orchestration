@@ -53,7 +53,7 @@
   - [x] [TASK-083 — Publish a raw webhook task to RabbitMQ](./epic-08/TASK-083.md)
 - #### EPIC-09. Webhook Normalizer
   - [x] [TASK-090 — Implement a raw webhook queue consumer](./epic-09/TASK-090.md)
-  - [ ] [TASK-091 — Implement mapping of external statuses to internal ones](./epic-09/TASK-091.md)
+  - [x] [TASK-091 — Implement mapping of external statuses to internal ones](./epic-09/TASK-091.md)
   - [ ] [TASK-092 — Signal Temporal workflow with a normalized event](./epic-09/TASK-092.md)
   - [ ] [TASK-093 — Publish a Kafka event about a normalized webhook](./epic-09/TASK-093.md)
   - [ ] [TASK-094 — Handle signals delivered to dead, completed, or timed-out Temporal workflows](./epic-09/TASK-094.md)
