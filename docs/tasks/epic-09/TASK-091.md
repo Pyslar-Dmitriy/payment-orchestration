@@ -13,3 +13,7 @@ Create a mapping layer:
 - mapping is centralized;
 - it can be changed without rewriting the workflow;
 - it is covered by tests for different provider payloads.
+
+#### Notes from TASK-090 review
+- `ConsumeRawWebhookCommand` logs the raw `message->body` on malformed-message discard. Once real provider payloads flow through, this could expose embedded tokens or sensitive references. Restrict the log to safe fields (e.g. `message_id`, body length) before shipping normalization.
+- The inbox insert and the normalization side-effects are not wrapped in a single DB transaction. Wrap them when the real payload-loading logic lands here so a crash between steps cannot leave the inbox row inserted without the downstream work being done.
