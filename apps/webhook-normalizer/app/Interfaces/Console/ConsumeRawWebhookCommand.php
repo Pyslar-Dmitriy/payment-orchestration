@@ -43,7 +43,7 @@ final class ConsumeRawWebhookCommand extends Command
             ) {
                 Log::warning('Malformed raw webhook message — discarding', [
                     'message_id' => $messageId,
-                    'body' => $message->body,
+                    'body_length' => strlen($message->body),
                 ]);
                 $message->nack(requeue: false);
 
