@@ -2,23 +2,18 @@
 
 namespace App\Providers;
 
+use App\Infrastructure\Queue\RabbitMqConsumer;
+use App\Infrastructure\Queue\RabbitMqConsumerContract;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
-        //
+        $this->app->bind(RabbitMqConsumerContract::class, function (): RabbitMqConsumer {
+            return new RabbitMqConsumer(config('rabbitmq'));
+        });
     }
 
-    /**
-     * Bootstrap any application services.
-     */
-    public function boot(): void
-    {
-        //
-    }
+    public function boot(): void {}
 }
