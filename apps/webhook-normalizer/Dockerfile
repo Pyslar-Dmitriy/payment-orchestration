@@ -7,7 +7,7 @@ RUN apk add --no-cache \
         unzip \
         libpq-dev \
         linux-headers \
-    && docker-php-ext-install pdo pdo_pgsql opcache pcntl sockets
+    && docker-php-ext-install pdo pdo_pgsql opcache pcntl bcmath sockets
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 

@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "webhook-signal-received.v1.json",
+  "title": "WebhookSignalReceived v1",
+  "description": "Normalized provider webhook signal published to provider.webhooks.normalized.v1. Producer: webhook-normalizer.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "message_id",
+    "correlation_id",
+    "source_service",
+    "occurred_at",
+    "event_type",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "enum": ["1"] },
+    "message_id": { "type": "string", "format": "uuid" },
+    "correlation_id": { "type": "string", "format": "uuid" },
+    "causation_id": { "type": "string", "format": "uuid" },
+    "source_service": { "type": "string", "const": "webhook-normalizer" },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "event_type": { "type": "string", "const": "provider.webhook_signal_received" },
+    "payload": {
+      "type": "object",
+      "required": [
+        "signal_id",
+        "raw_event_id",
+        "provider",
+        "provider_event_id",
+        "signal_type",
+        "provider_reference",
+        "normalized_at"
+      ],
+      "properties": {
+        "signal_id": { "type": "string", "format": "uuid" },
+        "raw_event_id": { "type": "string", "format": "uuid" },
+        "provider": { "type": "string" },
+        "provider_event_id": { "type": "string" },
+        "signal_type": {
+          "type": "string",
+          "enum": [
+            "payment_authorized",
+            "payment_captured",
+            "payment_settled",
+            "payment_failed",
+            "refund_completed",
+            "refund_failed",
+            "dispute_opened",
+            "dispute_resolved"
+          ]
+        },
+        "payment_id": { "type": ["string", "null"], "format": "uuid" },
+        "provider_reference": { "type": "string" },
+        "normalized_at": { "type": "string", "format": "date-time" },
+        "correlation_id": { "type": "string", "format": "uuid" },
+        "occurred_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
