@@ -1,0 +1,21 @@
+{
+  "schema_version": "1",
+  "message_id": "e5f6a7b8-c9d0-e1f2-a3b4-c5d6e7f8a9b0",
+  "correlation_id": "7b1f4c2e-3a8d-4e9f-b1c2-d3e4f5a6b7c8",
+  "causation_id": "3d4e5f6a-7b8c-9d0e-1f2a-3b4c5d6e7f8a",
+  "source_service": "webhook-normalizer",
+  "occurred_at": "2026-04-18T14:32:00.000Z",
+  "event_type": "provider.webhook_signal_received",
+  "payload": {
+    "signal_id": "e5f6a7b8-c9d0-e1f2-a3b4-c5d6e7f8a9b0",
+    "raw_event_id": "b8a7c6d5-e4f3-2a1b-9c8d-7e6f5a4b3c2d",
+    "provider": "mock",
+    "provider_event_id": "evt_mock_001",
+    "signal_type": "payment_captured",
+    "payment_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "provider_reference": "mock-a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "normalized_at": "2026-04-18T14:32:00.500Z",
+    "correlation_id": "7b1f4c2e-3a8d-4e9f-b1c2-d3e4f5a6b7c8",
+    "occurred_at": "2026-04-18T14:32:00.000Z"
+  }
+}

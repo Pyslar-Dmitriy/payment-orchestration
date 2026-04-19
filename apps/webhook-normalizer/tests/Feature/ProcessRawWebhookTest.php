@@ -202,6 +202,103 @@ class ProcessRawWebhookTest extends TestCase
     }
 
     // -----------------------------------------------------------------------
+    // Outbox events
+    // -----------------------------------------------------------------------
+
+    public function test_writes_outbox_event_for_normalizable_webhook(): void
+    {
+        $messageId = Str::uuid()->toString();
+        $rawEventId = Str::uuid()->toString();
+
+        $this->signalDispatcher->shouldReceive('dispatch')->once();
+
+        $this->processor()->execute($messageId, $this->validPayload(rawEventId: $rawEventId));
+
+        $this->assertDatabaseHas('outbox_events', [
+            'aggregate_type' => 'normalized_webhook_event',
+            'event_type' => 'provider.webhook_signal_received.v1',
+        ]);
+    }
+
+    public function test_outbox_event_contains_correct_fields(): void
+    {
+        $messageId = Str::uuid()->toString();
+        $rawEventId = Str::uuid()->toString();
+        $correlationId = Str::uuid()->toString();
+        $paymentId = self::PAYMENT_UUID;
+
+        $this->signalDispatcher->shouldReceive('dispatch')->once();
+
+        $this->processor()->execute($messageId, $this->validPayload(
+            rawEventId: $rawEventId,
+            correlationId: $correlationId,
+            paymentUuid: $paymentId,
+        ));
+
+        $row = DB::table('outbox_events')
+            ->where('event_type', 'provider.webhook_signal_received.v1')
+            ->first();
+
+        $this->assertNotNull($row);
+
+        $payload = json_decode($row->payload, true);
+
+        $this->assertSame($correlationId, $payload['correlation_id']);
+        $this->assertSame($rawEventId, $payload['raw_event_id']);
+        $this->assertSame('mock', $payload['provider']);
+        $this->assertSame($paymentId, $payload['payment_id']);
+        $this->assertSame('payment_captured', $payload['signal_type']);
+        $this->assertArrayHasKey('normalized_at', $payload);
+        $this->assertArrayHasKey('signal_id', $payload);
+    }
+
+    public function test_does_not_write_outbox_event_when_provider_is_unknown(): void
+    {
+        $messageId = Str::uuid()->toString();
+
+        $this->signalDispatcher->shouldNotReceive('dispatch');
+
+        $this->processor()->execute($messageId, $this->validPayload(provider: 'unknown-psp'));
+
+        $this->assertDatabaseMissing('outbox_events', ['event_type' => 'provider.webhook_signal_received.v1']);
+    }
+
+    public function test_outbox_event_written_even_when_workflow_is_dead(): void
+    {
+        $messageId = Str::uuid()->toString();
+
+        $this->signalDispatcher
+            ->shouldReceive('dispatch')
+            ->once()
+            ->andThrow(new DeadWorkflowException('Workflow not found'));
+
+        Log::shouldReceive('warning')->once()->withArgs(fn ($msg) => str_contains($msg, 'undeliverable'));
+        Log::shouldReceive('info')->zeroOrMoreTimes();
+
+        $this->processor()->execute($messageId, $this->validPayload());
+
+        $this->assertDatabaseHas('outbox_events', ['event_type' => 'provider.webhook_signal_received.v1']);
+    }
+
+    public function test_outbox_event_not_written_when_transient_error_propagates(): void
+    {
+        $messageId = Str::uuid()->toString();
+
+        $this->signalDispatcher
+            ->shouldReceive('dispatch')
+            ->once()
+            ->andThrow(new \RuntimeException('Connection refused'));
+
+        try {
+            $this->processor()->execute($messageId, $this->validPayload());
+            $this->fail('Expected RuntimeException was not thrown');
+        } catch (\RuntimeException) {
+        }
+
+        $this->assertDatabaseMissing('outbox_events', ['event_type' => 'provider.webhook_signal_received.v1']);
+    }
+
+    // -----------------------------------------------------------------------
     // Payload variations
     // -----------------------------------------------------------------------
 

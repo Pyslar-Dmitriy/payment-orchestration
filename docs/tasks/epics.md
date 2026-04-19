@@ -55,7 +55,7 @@
   - [x] [TASK-090 — Implement a raw webhook queue consumer](./epic-09/TASK-090.md)
   - [x] [TASK-091 — Implement mapping of external statuses to internal ones](./epic-09/TASK-091.md)
   - [x] [TASK-092 — Signal Temporal workflow with a normalized event](./epic-09/TASK-092.md)
-  - [ ] [TASK-093 — Publish a Kafka event about a normalized webhook](./epic-09/TASK-093.md)
+  - [x] [TASK-093 — Publish a Kafka event about a normalized webhook](./epic-09/TASK-093.md)
   - [ ] [TASK-094 — Handle signals delivered to dead, completed, or timed-out Temporal workflows](./epic-09/TASK-094.md)
 - #### EPIC-10. Ledger Service
   - [ ] [TASK-100 — Design a ledger model](./epic-10/TASK-100.md)
