@@ -220,7 +220,7 @@ class LedgerModelTest extends TestCase
 
     public function test_can_represent_authorization_posting(): void
     {
-        $escrow   = LedgerAccount::create(['type' => AccountType::Escrow,    'owner_id' => 'platform', 'currency' => 'USD']);
+        $escrow = LedgerAccount::create(['type' => AccountType::Escrow,    'owner_id' => 'platform', 'currency' => 'USD']);
         $provider = LedgerAccount::create(['type' => AccountType::Provider,  'owner_id' => 'stripe',   'currency' => 'USD']);
 
         $tx = $this->makeTransaction(EntryType::Authorization, 'pay-7', 'corr-8');
@@ -230,16 +230,16 @@ class LedgerModelTest extends TestCase
         LedgerEntry::create(['transaction_id' => $tx->id, 'account_id' => $escrow->id,   'direction' => EntryDirection::Credit, 'amount' => 8000, 'currency' => 'USD']);
 
         $this->assertEquals(-8000, $provider->balance());
-        $this->assertEquals(8000,  $escrow->balance());
+        $this->assertEquals(8000, $escrow->balance());
 
-        $totalDebits  = $tx->entries()->where('direction', 'debit')->sum('amount');
+        $totalDebits = $tx->entries()->where('direction', 'debit')->sum('amount');
         $totalCredits = $tx->entries()->where('direction', 'credit')->sum('amount');
         $this->assertEquals($totalDebits, $totalCredits);
     }
 
     public function test_can_represent_reversal_posting(): void
     {
-        $escrow   = LedgerAccount::create(['type' => AccountType::Escrow,   'owner_id' => 'platform', 'currency' => 'USD']);
+        $escrow = LedgerAccount::create(['type' => AccountType::Escrow,   'owner_id' => 'platform', 'currency' => 'USD']);
         $provider = LedgerAccount::create(['type' => AccountType::Provider, 'owner_id' => 'stripe',   'currency' => 'USD']);
 
         // First post an authorization
