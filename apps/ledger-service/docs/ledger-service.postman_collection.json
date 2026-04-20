@@ -2,7 +2,7 @@
   "info": {
     "name": "Ledger Service",
     "_postman_id": "ledger-service-v1",
-    "description": "Manual test collection for the ledger-service.\n\nBase URL is controlled by the `base_url` variable (default: http://localhost:8007).\n\nAll amounts are in the smallest currency unit (e.g. cents for USD).\nIdempotency is enforced by `payment_id` — posting the same payment_id twice returns the existing transaction.",
+    "description": "Manual test collection for the ledger-service.\n\nBase URL is controlled by the `base_url` variable (default: http://localhost:8007).\n\nAll amounts are in the smallest currency unit (e.g. cents for USD).\nIdempotency for captures is enforced by `payment_id`; for refunds it is enforced by `refund_id`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -173,6 +173,99 @@
               "code": 422,
               "header": [{"key": "Content-Type", "value": "application/json"}],
               "body": "{\n  \"message\": \"The payment id field is required.\",\n  \"errors\": {\n    \"payment_id\": [\"The payment id field is required.\"]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Post Refund — no fee refund",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Accept", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refund_id\": \"01REFUND1BXHF9MEVV1A2K3J4R\",\n  \"payment_id\": \"{{payment_id}}\",\n  \"merchant_id\": \"{{merchant_id}}\",\n  \"amount\": 10000,\n  \"currency\": \"USD\",\n  \"correlation_id\": \"00000000-0000-0000-0000-000000000003\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/postings/refund",
+              "host": ["{{base_url}}"],
+              "path": ["api", "postings", "refund"]
+            },
+            "description": "Posts a balanced double-entry refund: DEBIT merchant / CREDIT escrow.\nReturns 201 on first call, 200 on idempotent repeat.\nIdempotency key is scoped to refund_id."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"transaction_id\": \"01HV5E1BXHF9MEVV1A2K3J4XYZ\",\n  \"idempotency_key\": \"refund:01REFUND1BXHF9MEVV1A2K3J4R\",\n  \"entry_type\": \"refund\",\n  \"payment_id\": \"01HV5E1BXHF9MEVV1A2K3J4YZQ\",\n  \"refund_id\": \"01REFUND1BXHF9MEVV1A2K3J4R\",\n  \"created_at\": \"2026-04-20T10:05:00+00:00\",\n  \"entries\": [\n    {\"id\": \"01HV...\", \"account_id\": \"uuid-merchant\", \"direction\": \"debit\",  \"amount\": 10000, \"currency\": \"USD\"},\n    {\"id\": \"01HV...\", \"account_id\": \"uuid-escrow\",   \"direction\": \"credit\", \"amount\": 10000, \"currency\": \"USD\"}\n  ]\n}"
+            },
+            {
+              "name": "200 OK (idempotent repeat)",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"transaction_id\": \"01HV5E1BXHF9MEVV1A2K3J4XYZ\",\n  \"idempotency_key\": \"refund:01REFUND1BXHF9MEVV1A2K3J4R\",\n  \"entry_type\": \"refund\",\n  \"payment_id\": \"01HV5E1BXHF9MEVV1A2K3J4YZQ\",\n  \"refund_id\": \"01REFUND1BXHF9MEVV1A2K3J4R\",\n  \"created_at\": \"2026-04-20T10:05:00+00:00\",\n  \"entries\": [\n    {\"id\": \"01HV...\", \"account_id\": \"uuid-merchant\", \"direction\": \"debit\",  \"amount\": 10000, \"currency\": \"USD\"},\n    {\"id\": \"01HV...\", \"account_id\": \"uuid-escrow\",   \"direction\": \"credit\", \"amount\": 10000, \"currency\": \"USD\"}\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Post Refund — with fee refund",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Accept", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refund_id\": \"01REFUND2BXHF9MEVV1A2K3J4S\",\n  \"payment_id\": \"{{payment_id}}\",\n  \"merchant_id\": \"{{merchant_id}}\",\n  \"amount\": 10000,\n  \"currency\": \"USD\",\n  \"fee_refund_amount\": 300,\n  \"correlation_id\": \"00000000-0000-0000-0000-000000000004\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/postings/refund",
+              "host": ["{{base_url}}"],
+              "path": ["api", "postings", "refund"]
+            },
+            "description": "Three-leg refund: DEBIT merchant(9700) / DEBIT fees(300) / CREDIT escrow(10000).\nTotal debits == total credits. Platform waives fee income on refund."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"transaction_id\": \"01HV5E1BXHF9MEVV1A2K3J4UVW\",\n  \"idempotency_key\": \"refund:01REFUND2BXHF9MEVV1A2K3J4S\",\n  \"entry_type\": \"refund\",\n  \"payment_id\": \"01HV5E1BXHF9MEVV1A2K3J4YZQ\",\n  \"refund_id\": \"01REFUND2BXHF9MEVV1A2K3J4S\",\n  \"created_at\": \"2026-04-20T10:06:00+00:00\",\n  \"entries\": [\n    {\"id\": \"01HV...\", \"account_id\": \"uuid-merchant\", \"direction\": \"debit\",  \"amount\": 9700,  \"currency\": \"USD\"},\n    {\"id\": \"01HV...\", \"account_id\": \"uuid-fees\",    \"direction\": \"debit\",  \"amount\": 300,   \"currency\": \"USD\"},\n    {\"id\": \"01HV...\", \"account_id\": \"uuid-escrow\",  \"direction\": \"credit\", \"amount\": 10000, \"currency\": \"USD\"}\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Post Refund — 422 missing refund_id",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Accept", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_id\": \"{{payment_id}}\",\n  \"merchant_id\": \"{{merchant_id}}\",\n  \"amount\": 10000,\n  \"currency\": \"USD\",\n  \"correlation_id\": \"00000000-0000-0000-0000-000000000003\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/postings/refund",
+              "host": ["{{base_url}}"],
+              "path": ["api", "postings", "refund"]
+            }
+          },
+          "response": [
+            {
+              "name": "422 Unprocessable Entity",
+              "status": "Unprocessable Content",
+              "code": 422,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"message\": \"The refund id field is required.\",\n  \"errors\": {\n    \"refund_id\": [\"The refund id field is required.\"]\n  }\n}"
             }
           ]
         },
