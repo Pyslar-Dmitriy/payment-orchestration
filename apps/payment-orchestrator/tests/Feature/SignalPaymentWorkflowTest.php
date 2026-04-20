@@ -138,10 +138,10 @@ class SignalPaymentWorkflowTest extends TestCase
         $this->withInternalSecret()
             ->postJson('/api/signals/payments/'.self::WORKFLOW_ID, $this->validPayload)
             ->assertNotFound()
-            ->assertJson(['message' => 'Workflow not found.']);
+            ->assertJson(['message' => 'Workflow not found.', 'reason' => 'workflow_not_found']);
     }
 
-    public function test_returns_404_when_service_client_returns_grpc_not_found(): void
+    public function test_returns_404_with_workflow_already_closed_reason_when_service_client_returns_grpc_not_found(): void
     {
         $this->mockWorkflowClient(function (MockInterface $client): void {
             $client->shouldReceive('newRunningWorkflowStub')
@@ -153,7 +153,8 @@ class SignalPaymentWorkflowTest extends TestCase
 
         $this->withInternalSecret()
             ->postJson('/api/signals/payments/'.self::WORKFLOW_ID, $this->validPayload)
-            ->assertNotFound();
+            ->assertNotFound()
+            ->assertJson(['reason' => 'workflow_already_closed']);
     }
 
     // ── route constraint ──────────────────────────────────────────────────────

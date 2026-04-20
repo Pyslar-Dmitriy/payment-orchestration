@@ -150,7 +150,7 @@ class ProcessRawWebhookTest extends TestCase
         $this->signalDispatcher
             ->shouldReceive('dispatch')
             ->once()
-            ->andThrow(new DeadWorkflowException('Workflow not found'));
+            ->andThrow(new DeadWorkflowException('Workflow not found', 'workflow_not_found'));
 
         Log::shouldReceive('warning')
             ->once()
@@ -161,6 +161,108 @@ class ProcessRawWebhookTest extends TestCase
         $this->processor()->execute($messageId, $this->validPayload());
 
         $this->assertDatabaseHas('inbox_messages', ['message_id' => $messageId]);
+    }
+
+    public function test_warning_log_includes_required_fields_when_workflow_dead(): void
+    {
+        $messageId = Str::uuid()->toString();
+        $correlationId = Str::uuid()->toString();
+
+        $this->signalDispatcher
+            ->shouldReceive('dispatch')
+            ->once()
+            ->andThrow(new DeadWorkflowException('dead', 'workflow_already_closed'));
+
+        Log::shouldReceive('warning')
+            ->once()
+            ->withArgs(function ($msg, array $context) use ($correlationId): bool {
+                return str_contains($msg, 'undeliverable')
+                    && isset($context['payment_id'], $context['correlation_id'], $context['signal_type'], $context['provider_event_id'])
+                    && $context['correlation_id'] === $correlationId
+                    && $context['reason'] === 'workflow_already_closed';
+            });
+
+        Log::shouldReceive('info')->zeroOrMoreTimes();
+
+        $this->processor()->execute($messageId, $this->validPayload(correlationId: $correlationId));
+    }
+
+    public function test_publishes_undeliverable_outbox_event_when_workflow_not_found(): void
+    {
+        $messageId = Str::uuid()->toString();
+        $correlationId = Str::uuid()->toString();
+
+        $this->signalDispatcher
+            ->shouldReceive('dispatch')
+            ->once()
+            ->andThrow(new DeadWorkflowException('dead', 'workflow_not_found'));
+
+        Log::shouldReceive('warning')->once()->withArgs(fn ($msg) => str_contains($msg, 'undeliverable'));
+        Log::shouldReceive('info')->zeroOrMoreTimes();
+
+        $this->processor()->execute($messageId, $this->validPayload(correlationId: $correlationId));
+
+        $this->assertDatabaseHas('outbox_events', ['event_type' => 'webhook.signal.undeliverable.v1']);
+    }
+
+    public function test_undeliverable_outbox_event_contains_required_fields(): void
+    {
+        $messageId = Str::uuid()->toString();
+        $correlationId = Str::uuid()->toString();
+
+        $this->signalDispatcher
+            ->shouldReceive('dispatch')
+            ->once()
+            ->andThrow(new DeadWorkflowException('dead', 'workflow_already_closed'));
+
+        Log::shouldReceive('warning')->once()->withArgs(fn ($msg) => str_contains($msg, 'undeliverable'));
+        Log::shouldReceive('info')->zeroOrMoreTimes();
+
+        $this->processor()->execute($messageId, $this->validPayload(correlationId: $correlationId));
+
+        $row = DB::table('outbox_events')
+            ->where('event_type', 'webhook.signal.undeliverable.v1')
+            ->first();
+
+        $this->assertNotNull($row);
+
+        $payload = json_decode($row->payload, true);
+
+        $this->assertSame(self::PAYMENT_UUID, $payload['payment_id']);
+        $this->assertSame($correlationId, $payload['correlation_id']);
+        $this->assertSame('captured', $payload['normalized_status']);
+        $this->assertSame('workflow_already_closed', $payload['reason']);
+        $this->assertArrayHasKey('provider_event_id', $payload);
+        $this->assertArrayHasKey('occurred_at', $payload);
+    }
+
+    public function test_undeliverable_outbox_event_not_written_when_signal_succeeds(): void
+    {
+        $messageId = Str::uuid()->toString();
+
+        $this->signalDispatcher->shouldReceive('dispatch')->once();
+
+        $this->processor()->execute($messageId, $this->validPayload());
+
+        $this->assertDatabaseMissing('outbox_events', ['event_type' => 'webhook.signal.undeliverable.v1']);
+    }
+
+    public function test_undeliverable_outbox_event_not_written_on_transient_error(): void
+    {
+        $messageId = Str::uuid()->toString();
+
+        $this->signalDispatcher
+            ->shouldReceive('dispatch')
+            ->once()
+            ->andThrow(new \RuntimeException('Connection refused'));
+
+        try {
+            $this->processor()->execute($messageId, $this->validPayload());
+            $this->fail('Expected RuntimeException was not thrown');
+        } catch (\RuntimeException) {
+        }
+
+        $this->assertDatabaseMissing('outbox_events', ['event_type' => 'webhook.signal.undeliverable.v1']);
     }
 
     // -----------------------------------------------------------------------
@@ -270,7 +372,7 @@ class ProcessRawWebhookTest extends TestCase
         $this->signalDispatcher
             ->shouldReceive('dispatch')
             ->once()
-            ->andThrow(new DeadWorkflowException('Workflow not found'));
+            ->andThrow(new DeadWorkflowException('Workflow not found', 'workflow_not_found'));
 
         Log::shouldReceive('warning')->once()->withArgs(fn ($msg) => str_contains($msg, 'undeliverable'));
         Log::shouldReceive('info')->zeroOrMoreTimes();

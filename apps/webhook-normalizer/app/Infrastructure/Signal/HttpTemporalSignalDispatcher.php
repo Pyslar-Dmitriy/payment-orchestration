@@ -51,8 +51,11 @@ final class HttpTemporalSignalDispatcher implements TemporalSignalDispatcherInte
         }
 
         if ($response->status() === 404) {
+            $reason = (string) ($response->json('reason') ?? 'workflow_not_found');
+
             throw new DeadWorkflowException(
                 "Temporal workflow not found for payment {$event->paymentId}",
+                $reason,
             );
         }
 

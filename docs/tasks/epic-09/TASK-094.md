@@ -36,3 +36,22 @@ When the signal delivery call returns a "workflow not found" or "workflow alread
 - `WARNING` log is emitted with all required fields.
 - `WebhookSignalUndeliverable` event is published to Kafka on undeliverable signal.
 - Unit test covers: signal succeeds, signal fails with transient error (should retry), signal fails with workflow-closed error (should warn + publish event).
+## Result
+
+### Files modified
+
+**webhook-normalizer:**
+- `app/Domain/Signal/DeadWorkflowException.php` — added `$deadReason` constructor property (`workflow_not_found` | `workflow_already_closed`) and `getDeadReason()` accessor; constructor promotion with default `workflow_not_found`
+- `app/Infrastructure/Signal/HttpTemporalSignalDispatcher.php` — on HTTP 404, reads `reason` from the JSON response body and passes it to `DeadWorkflowException`; defaults to `workflow_not_found` if the field is absent
+- `app/Application/ProcessRawWebhook.php` — `dispatchSignal` now returns `?string` (the dead reason or `null` on success); WARNING log extended with `signal_type`, `provider_event_id`, and `reason`; the same DB transaction that writes inbox + normal outbox also inserts a `webhook.signal.undeliverable.v1` outbox event (with `payment_id`, `correlation_id`, `normalized_status`, `reason`, `provider_event_id`, `occurred_at`) when a dead workflow is detected
+- `tests/Feature/ProcessRawWebhookTest.php` — added 6 new tests covering: warning log fields, undeliverable event written on dead workflow, undeliverable event payload fields, event not written on success, event not written on transient error; updated existing dead-workflow test to use explicit `reason` argument
+
+**payment-orchestrator:**
+- `app/Interfaces/Http/Controllers/SignalPaymentWorkflowController.php` — 404 responses now include a `reason` field: `workflow_not_found` for `WorkflowNotFoundException`, `workflow_already_closed` for `ServiceClientException` gRPC code 5
+- `tests/Feature/SignalPaymentWorkflowTest.php` — updated `test_returns_404_when_workflow_not_found_exception_is_thrown` to also assert `reason: workflow_not_found`; renamed and updated the `ServiceClientException` test to assert `reason: workflow_already_closed`
+
+### Design decisions
+
+- Used a single `$deadReason` string instead of two `DeadWorkflowException` subclasses — simpler and sufficient for the task.
+- Undeliverable event written to the same `outbox_events` table/topic (`provider.webhooks.normalized.v1`) as normal events rather than a dedicated topic; the `event_type` field (`webhook.signal.undeliverable.v1`) provides the distinction. A dedicated topic can be added in a future task without touching the publish path.
+- Transient errors (`RuntimeException`) still propagate unchanged — no behavior change for retried signals.
