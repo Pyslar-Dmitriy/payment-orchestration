@@ -58,7 +58,7 @@
   - [x] [TASK-093 — Publish a Kafka event about a normalized webhook](./epic-09/TASK-093.md)
   - [x] [TASK-094 — Handle signals delivered to dead, completed, or timed-out Temporal workflows](./epic-09/TASK-094.md)
 - #### EPIC-10. Ledger Service
-  - [ ] [TASK-100 — Design a ledger model](./epic-10/TASK-100.md)
+  - [x] [TASK-100 — Design a ledger model](./epic-10/TASK-100.md)
   - [ ] [TASK-101 — Implement posting ledger entries for capture](./epic-10/TASK-101.md)
   - [ ] [TASK-102 — Implement refund ledger posting](./epic-10/TASK-102.md)
   - [ ] [TASK-103 — Implement ledger outbox events](./epic-10/TASK-103.md)

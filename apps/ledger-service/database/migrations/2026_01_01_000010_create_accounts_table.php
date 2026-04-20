@@ -8,19 +8,22 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('accounts', function (Blueprint $table) {
+        // One row per (type, owner_id, currency) combination.
+        // type: merchant | provider | fees | escrow
+        // owner_id: external identifier (merchant UUID, provider slug, 'platform' for system accounts)
+        Schema::create('ledger_accounts', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->string('owner_type'); // merchant | provider | fees | escrow
-            $table->string('owner_id')->index(); // external reference — no cross-service FK
+            $table->string('type');
+            $table->string('owner_id')->index();
             $table->char('currency', 3);
             $table->timestamps();
 
-            $table->unique(['owner_type', 'owner_id', 'currency']);
+            $table->unique(['type', 'owner_id', 'currency']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('accounts');
+        Schema::dropIfExists('ledger_accounts');
     }
 };
