@@ -1,0 +1,210 @@
+{
+  "info": {
+    "name": "Ledger Service",
+    "_postman_id": "ledger-service-v1",
+    "description": "Manual test collection for the ledger-service.\n\nBase URL is controlled by the `base_url` variable (default: http://localhost:8007).\n\nAll amounts are in the smallest currency unit (e.g. cents for USD).\nIdempotency is enforced by `payment_id` — posting the same payment_id twice returns the existing transaction.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8007",
+      "type": "string"
+    },
+    {
+      "key": "payment_id",
+      "value": "01HV5E1BXHF9MEVV1A2K3J4YZQ",
+      "type": "string",
+      "description": "ULID of the payment being posted to the ledger."
+    },
+    {
+      "key": "merchant_id",
+      "value": "merchant-uuid-1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Infrastructure",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Liveness probe."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\"status\":\"ok\"}"
+            }
+          ]
+        },
+        {
+          "name": "Ready",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/ready",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ready"]
+            },
+            "description": "Readiness probe — checks database connectivity."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\"status\":\"ok\"}"
+            },
+            {
+              "name": "503 Service Unavailable",
+              "status": "Service Unavailable",
+              "code": 503,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\"status\":\"error\",\"message\":\"Database unavailable.\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Postings",
+      "item": [
+        {
+          "name": "Post Capture — no fee",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Accept", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_id\": \"{{payment_id}}\",\n  \"merchant_id\": \"{{merchant_id}}\",\n  \"amount\": 10000,\n  \"currency\": \"USD\",\n  \"correlation_id\": \"00000000-0000-0000-0000-000000000001\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/postings/capture",
+              "host": ["{{base_url}}"],
+              "path": ["api", "postings", "capture"]
+            },
+            "description": "Posts a balanced double-entry capture: DEBIT escrow / CREDIT merchant.\nReturns 201 on first call, 200 on idempotent repeat."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"transaction_id\": \"01HV5E1BXHF9MEVV1A2K3J4ABC\",\n  \"idempotency_key\": \"capture:01HV5E1BXHF9MEVV1A2K3J4YZQ\",\n  \"entry_type\": \"capture\",\n  \"payment_id\": \"01HV5E1BXHF9MEVV1A2K3J4YZQ\",\n  \"created_at\": \"2026-04-20T10:00:00+00:00\",\n  \"entries\": [\n    {\"id\": \"01HV...\", \"account_id\": \"uuid-escrow\",   \"direction\": \"debit\",  \"amount\": 10000, \"currency\": \"USD\"},\n    {\"id\": \"01HV...\", \"account_id\": \"uuid-merchant\", \"direction\": \"credit\", \"amount\": 10000, \"currency\": \"USD\"}\n  ]\n}"
+            },
+            {
+              "name": "200 OK (idempotent repeat)",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"transaction_id\": \"01HV5E1BXHF9MEVV1A2K3J4ABC\",\n  \"idempotency_key\": \"capture:01HV5E1BXHF9MEVV1A2K3J4YZQ\",\n  \"entry_type\": \"capture\",\n  \"payment_id\": \"01HV5E1BXHF9MEVV1A2K3J4YZQ\",\n  \"created_at\": \"2026-04-20T10:00:00+00:00\",\n  \"entries\": [\n    {\"id\": \"01HV...\", \"account_id\": \"uuid-escrow\",   \"direction\": \"debit\",  \"amount\": 10000, \"currency\": \"USD\"},\n    {\"id\": \"01HV...\", \"account_id\": \"uuid-merchant\", \"direction\": \"credit\", \"amount\": 10000, \"currency\": \"USD\"}\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Post Capture — with fee",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Accept", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_id\": \"{{payment_id}}\",\n  \"merchant_id\": \"{{merchant_id}}\",\n  \"amount\": 10000,\n  \"currency\": \"USD\",\n  \"fee_amount\": 300,\n  \"correlation_id\": \"00000000-0000-0000-0000-000000000002\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/postings/capture",
+              "host": ["{{base_url}}"],
+              "path": ["api", "postings", "capture"]
+            },
+            "description": "Three-leg capture: DEBIT escrow(10000) / CREDIT merchant(9700) / CREDIT fees(300).\nTotal debits == total credits."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"transaction_id\": \"01HV5E1BXHF9MEVV1A2K3J4DEF\",\n  \"idempotency_key\": \"capture:01HV5E1BXHF9MEVV1A2K3J4YZQ\",\n  \"entry_type\": \"capture\",\n  \"payment_id\": \"01HV5E1BXHF9MEVV1A2K3J4YZQ\",\n  \"created_at\": \"2026-04-20T10:00:00+00:00\",\n  \"entries\": [\n    {\"id\": \"01HV...\", \"account_id\": \"uuid-escrow\",   \"direction\": \"debit\",  \"amount\": 10000, \"currency\": \"USD\"},\n    {\"id\": \"01HV...\", \"account_id\": \"uuid-merchant\", \"direction\": \"credit\", \"amount\": 9700,  \"currency\": \"USD\"},\n    {\"id\": \"01HV...\", \"account_id\": \"uuid-fees\",    \"direction\": \"credit\", \"amount\": 300,   \"currency\": \"USD\"}\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Post Capture — 422 missing payment_id",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Accept", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchant_id\": \"{{merchant_id}}\",\n  \"amount\": 10000,\n  \"currency\": \"USD\",\n  \"correlation_id\": \"00000000-0000-0000-0000-000000000001\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/postings/capture",
+              "host": ["{{base_url}}"],
+              "path": ["api", "postings", "capture"]
+            }
+          },
+          "response": [
+            {
+              "name": "422 Unprocessable Entity",
+              "status": "Unprocessable Content",
+              "code": 422,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"message\": \"The payment id field is required.\",\n  \"errors\": {\n    \"payment_id\": [\"The payment id field is required.\"]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Post Capture — 422 fee >= amount",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Accept", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_id\": \"{{payment_id}}\",\n  \"merchant_id\": \"{{merchant_id}}\",\n  \"amount\": 1000,\n  \"currency\": \"USD\",\n  \"fee_amount\": 1000,\n  \"correlation_id\": \"00000000-0000-0000-0000-000000000001\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/postings/capture",
+              "host": ["{{base_url}}"],
+              "path": ["api", "postings", "capture"]
+            }
+          },
+          "response": [
+            {
+              "name": "422 Unprocessable Entity",
+              "status": "Unprocessable Content",
+              "code": 422,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"message\": \"The fee amount must be less than the total amount.\",\n  \"errors\": {\n    \"fee_amount\": [\"The fee amount must be less than the total amount.\"]\n  }\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
