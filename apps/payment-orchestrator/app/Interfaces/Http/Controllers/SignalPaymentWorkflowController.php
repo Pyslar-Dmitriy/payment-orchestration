@@ -34,11 +34,11 @@ final class SignalPaymentWorkflowController
                 'provider.capture_result' => $stub->onCaptureResult($payload),
             };
         } catch (WorkflowNotFoundException) {
-            return response()->json(['message' => 'Workflow not found.'], Response::HTTP_NOT_FOUND);
+            return response()->json(['message' => 'Workflow not found.', 'reason' => 'workflow_not_found'], Response::HTTP_NOT_FOUND);
         } catch (ServiceClientException $e) {
             // gRPC NOT_FOUND status code = 5
             if ($e->getCode() === 5) {
-                return response()->json(['message' => 'Workflow not found.'], Response::HTTP_NOT_FOUND);
+                return response()->json(['message' => 'Workflow not found.', 'reason' => 'workflow_already_closed'], Response::HTTP_NOT_FOUND);
             }
 
             throw $e;

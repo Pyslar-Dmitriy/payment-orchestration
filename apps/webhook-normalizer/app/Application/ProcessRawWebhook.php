@@ -47,14 +47,15 @@ final class ProcessRawWebhook
         // Signal Temporal before committing inbox. If this throws a transient error
         // the exception propagates, the message is requeued, and the inbox row is
         // never inserted — guaranteeing at-least-once delivery without lost signals.
+        $deadReason = null;
         if ($normalizedEvent !== null) {
-            $this->dispatchSignal($normalizedEvent, $correlationId);
+            $deadReason = $this->dispatchSignal($normalizedEvent, $correlationId);
         }
 
         $now = now();
         $signalId = (string) Str::uuid();
 
-        DB::transaction(function () use ($messageId, $now, $signalId, $normalizedEvent, $rawEventId, $correlationId): void {
+        DB::transaction(function () use ($messageId, $now, $signalId, $normalizedEvent, $rawEventId, $correlationId, $deadReason): void {
             DB::table('inbox_messages')->insert([
                 'message_id' => $messageId,
                 'processed_at' => $now,
@@ -81,6 +82,24 @@ final class ProcessRawWebhook
                     ]),
                     'created_at' => $now,
                 ]);
+
+                if ($deadReason !== null) {
+                    DB::table('outbox_events')->insert([
+                        'id' => (string) Str::uuid(),
+                        'aggregate_type' => 'webhook_signal_undeliverable',
+                        'aggregate_id' => $normalizedEvent->paymentId,
+                        'event_type' => 'webhook.signal.undeliverable.v1',
+                        'payload' => json_encode([
+                            'payment_id' => $normalizedEvent->paymentId !== '' ? $normalizedEvent->paymentId : null,
+                            'correlation_id' => $correlationId,
+                            'normalized_status' => $normalizedEvent->internalStatus,
+                            'reason' => $deadReason,
+                            'provider_event_id' => $normalizedEvent->providerEventId,
+                            'occurred_at' => $now->toIso8601String(),
+                        ]),
+                        'created_at' => $now,
+                    ]);
+                }
             }
         });
 
@@ -94,19 +113,22 @@ final class ProcessRawWebhook
         ]);
     }
 
-    private function dispatchSignal(NormalizedWebhookEvent $event, string $correlationId): void
+    private function dispatchSignal(NormalizedWebhookEvent $event, string $correlationId): ?string
     {
         try {
             $this->signalDispatcher->dispatch($event, $correlationId);
+
+            return null;
         } catch (DeadWorkflowException $e) {
-            // Workflow is gone — log and continue. TASK-094 handles publishing
-            // the WebhookSignalUndeliverable Kafka event.
-            Log::warning('Temporal workflow not found for normalized webhook — signal undeliverable', [
+            Log::warning('Temporal workflow signal undeliverable — workflow dead', [
                 'payment_id' => $event->paymentId,
-                'provider_event_id' => $event->providerEventId,
-                'provider' => $event->provider,
                 'correlation_id' => $correlationId,
+                'signal_type' => str_replace('.', '_', $event->eventType),
+                'provider_event_id' => $event->providerEventId,
+                'reason' => $e->getDeadReason(),
             ]);
+
+            return $e->getDeadReason();
         }
         // Transient RuntimeExceptions propagate — message will be requeued.
     }
