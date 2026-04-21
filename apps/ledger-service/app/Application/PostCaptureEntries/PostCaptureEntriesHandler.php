@@ -10,6 +10,7 @@ use App\Domain\Ledger\EntryType;
 use App\Domain\Ledger\LedgerAccount;
 use App\Domain\Ledger\LedgerEntry;
 use App\Domain\Ledger\LedgerTransaction;
+use App\Infrastructure\Outbox\OutboxMessage;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -65,6 +66,30 @@ final class PostCaptureEntriesHandler
                         'currency' => $command->currency,
                     ]);
                 }
+
+                $transaction->load('entries.account');
+
+                OutboxMessage::create([
+                    'aggregate_type' => 'LedgerTransaction',
+                    'aggregate_id' => $transaction->id,
+                    'event_type' => 'ledger.entry_posted.v1',
+                    'payload' => [
+                        'entry_id' => $transaction->id,
+                        'payment_id' => $transaction->payment_id,
+                        'merchant_id' => $command->merchantId,
+                        'posting_type' => $transaction->entry_type->value,
+                        'lines' => $transaction->entries->map(fn (LedgerEntry $e) => [
+                            'account' => "{$e->account->type->value}.{$e->account->owner_id}",
+                            'direction' => $e->direction->value,
+                            'amount' => ['value' => $e->amount, 'currency' => $e->currency],
+                        ])->values()->all(),
+                        'idempotency_key' => $transaction->idempotency_key,
+                        'posted_at' => $transaction->created_at->toIso8601String(),
+                        'correlation_id' => $command->correlationId,
+                        'causation_id' => $command->causationId,
+                        'occurred_at' => $transaction->created_at->toIso8601String(),
+                    ],
+                ]);
 
                 return $transaction;
             });

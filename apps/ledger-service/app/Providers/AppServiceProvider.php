@@ -2,23 +2,19 @@
 
 namespace App\Providers;
 
+use App\Infrastructure\Outbox\Publisher\BrokerPublisherInterface;
+use App\Infrastructure\Outbox\Publisher\Kafka\KafkaPublisher;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
-        //
+        $this->app->bind(
+            BrokerPublisherInterface::class,
+            fn () => new KafkaPublisher(config('outbox.kafka')),
+        );
     }
 
-    /**
-     * Bootstrap any application services.
-     */
-    public function boot(): void
-    {
-        //
-    }
+    public function boot(): void {}
 }
