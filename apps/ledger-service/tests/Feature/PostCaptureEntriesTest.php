@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Domain\Ledger\EntryDirection;
 use App\Domain\Ledger\LedgerEntry;
 use App\Domain\Ledger\LedgerTransaction;
+use App\Infrastructure\Outbox\OutboxMessage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -36,6 +37,26 @@ class PostCaptureEntriesTest extends TestCase
         $response->assertJsonFragment(['entry_type' => 'capture']);
         $response->assertJsonFragment(['idempotency_key' => 'capture:01HV5E1BXHF9MEVV1A2K3J4YZQ']);
         $this->assertDatabaseCount('ledger_entries', 2);
+        $this->assertDatabaseCount('outbox_messages', 1);
+    }
+
+    public function test_capture_posting_writes_outbox_message_with_correct_fields(): void
+    {
+        $response = $this->postJson(self::ENDPOINT, $this->validPayload(['amount' => 10000]));
+
+        $response->assertStatus(201);
+        $transactionId = $response->json('transaction_id');
+
+        $message = OutboxMessage::first();
+        $this->assertNotNull($message);
+        $this->assertSame('LedgerTransaction', $message->aggregate_type);
+        $this->assertSame($transactionId, $message->aggregate_id);
+        $this->assertSame('ledger.entry_posted.v1', $message->event_type);
+        $this->assertNull($message->published_at);
+        $this->assertSame($transactionId, $message->payload['entry_id']);
+        $this->assertSame('capture', $message->payload['posting_type']);
+        $this->assertSame('merchant-abc', $message->payload['merchant_id']);
+        $this->assertCount(2, $message->payload['lines']);
     }
 
     public function test_posts_capture_entries_creates_correct_debit_and_credit(): void
@@ -105,6 +126,7 @@ class PostCaptureEntriesTest extends TestCase
 
         $this->assertDatabaseCount('ledger_transactions', 1);
         $this->assertDatabaseCount('ledger_entries', 2);
+        $this->assertDatabaseCount('outbox_messages', 1);
     }
 
     public function test_duplicate_request_returns_same_transaction_id(): void

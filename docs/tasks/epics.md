@@ -61,7 +61,7 @@
   - [x] [TASK-100 — Design a ledger model](./epic-10/TASK-100.md)
   - [x] [TASK-101 — Implement posting ledger entries for capture](./epic-10/TASK-101.md)
   - [x] [TASK-102 — Implement refund ledger posting](./epic-10/TASK-102.md)
-  - [ ] [TASK-103 — Implement ledger outbox events](./epic-10/TASK-103.md)
+  - [x] [TASK-103 — Implement ledger outbox events](./epic-10/TASK-103.md)
 - #### EPIC-11. Merchant Callback Delivery
   - [ ] [TASK-110 — Design a callback subscription model and delivery history](./epic-11/TASK-110.md)
   - [ ] [TASK-111 — Implement a dispatch callback task in RabbitMQ](./epic-11/TASK-111.md)
