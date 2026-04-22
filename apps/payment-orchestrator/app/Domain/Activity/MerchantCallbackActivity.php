@@ -16,12 +16,12 @@ interface MerchantCallbackActivity
 {
     /**
      * @param  string  $resourceUuid  Payment UUID (or refund UUID for refund events).
-     * @param  string  $merchantId    Merchant who owns the payment/refund.
-     * @param  int     $amountValue   Amount in minor currency units.
+     * @param  string  $merchantId  Merchant who owns the payment/refund.
+     * @param  int  $amountValue  Amount in minor currency units.
      * @param  string  $amountCurrency  ISO-4217 three-letter currency code.
-     * @param  string  $eventType     Fully-qualified event type (e.g. payment.captured).
-     * @param  string  $correlationId Correlation ID propagated from the workflow.
-     * @param  string|null  $refundId Refund UUID, present only for refund events.
+     * @param  string  $eventType  Fully-qualified event type (e.g. payment.captured).
+     * @param  string  $correlationId  Correlation ID propagated from the workflow.
+     * @param  string|null  $refundId  Refund UUID, present only for refund events.
      */
     #[ActivityMethod(name: 'triggerCallback')]
     public function triggerCallback(
