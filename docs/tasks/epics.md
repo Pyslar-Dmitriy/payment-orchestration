@@ -64,7 +64,7 @@
   - [x] [TASK-103 — Implement ledger outbox events](./epic-10/TASK-103.md)
 - #### EPIC-11. Merchant Callback Delivery
   - [x] [TASK-110 — Design a callback subscription model and delivery history](./epic-11/TASK-110.md)
-  - [ ] [TASK-111 — Implement a dispatch callback task in RabbitMQ](./epic-11/TASK-111.md)
+  - [x] [TASK-111 — Implement a dispatch callback task in RabbitMQ](./epic-11/TASK-111.md)
   - [ ] [TASK-112 — Implement a delivery worker with retry/backoff/DLQ](./epic-11/TASK-112.md)
 - #### EPIC-12. Kafka and projections
   - [ ] [TASK-120 — Configure domain event publishing in Kafka](./epic-12/TASK-120.md)

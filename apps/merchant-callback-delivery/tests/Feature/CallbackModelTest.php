@@ -118,10 +118,10 @@ class CallbackModelTest extends TestCase
 
         $delivery = CallbackDelivery::create([
             'subscription_id' => $sub->id,
-            'payment_id' => '01HV5E1BXHF9MEVV1A2K3J4YZQ',
+            'payment_id' => 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
             'merchant_id' => $sub->merchant_id,
             'event_type' => 'payment.captured',
-            'payload' => ['payment_id' => '01HV5E1BXHF9MEVV1A2K3J4YZQ', 'amount' => 10000],
+            'payload' => ['payment_id' => 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'amount' => 10000],
             'endpoint_url' => $sub->callback_url,
             'status' => DeliveryStatus::Pending,
             'correlation_id' => Str::uuid()->toString(),
@@ -330,10 +330,10 @@ class CallbackModelTest extends TestCase
 
         return CallbackDelivery::create([
             'subscription_id' => $sub->id,
-            'payment_id' => '01HV5E1BXHF9MEVV1A2K3J4YZQ',
+            'payment_id' => 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
             'merchant_id' => $sub->merchant_id,
             'event_type' => 'payment.captured',
-            'payload' => ['payment_id' => '01HV5E1BXHF9MEVV1A2K3J4YZQ'],
+            'payload' => ['payment_id' => 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'],
             'endpoint_url' => $sub->callback_url,
             'status' => DeliveryStatus::Pending,
             'correlation_id' => Str::uuid()->toString(),

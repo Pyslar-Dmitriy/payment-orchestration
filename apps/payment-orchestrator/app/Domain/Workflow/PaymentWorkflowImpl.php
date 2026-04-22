@@ -322,7 +322,10 @@ class PaymentWorkflowImpl implements PaymentWorkflow
         }
 
         yield $this->publishActivity->publishPaymentCaptured($input->paymentUuid, $input->correlationId);
-        yield $this->callbackActivity->triggerCallback($input->paymentUuid, 'captured', $input->correlationId);
+        yield $this->callbackActivity->triggerCallback(
+            $input->paymentUuid, $input->merchantId, $input->amount, $input->currency,
+            'payment.captured', $input->correlationId,
+        );
     }
 
     /**
@@ -332,7 +335,10 @@ class PaymentWorkflowImpl implements PaymentWorkflow
     {
         yield $this->updateStatusActivity->markFailed($input->paymentUuid, $input->correlationId, $reason);
         yield $this->publishActivity->publishPaymentFailed($input->paymentUuid, $input->correlationId);
-        yield $this->callbackActivity->triggerCallback($input->paymentUuid, 'failed', $input->correlationId);
+        yield $this->callbackActivity->triggerCallback(
+            $input->paymentUuid, $input->merchantId, $input->amount, $input->currency,
+            'payment.failed', $input->correlationId,
+        );
     }
 
     /**
