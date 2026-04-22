@@ -228,7 +228,10 @@ class RefundWorkflowImpl implements RefundWorkflow
         }
 
         yield $this->publishActivity->publishRefundCompleted($input->refundUuid, $input->correlationId);
-        yield $this->callbackActivity->triggerCallback($input->refundUuid, 'refunded', $input->correlationId);
+        yield $this->callbackActivity->triggerCallback(
+            $input->paymentUuid, $input->merchantId, $input->amount, $input->currency,
+            'refund.completed', $input->correlationId, $input->refundUuid,
+        );
     }
 
     /**
@@ -238,7 +241,10 @@ class RefundWorkflowImpl implements RefundWorkflow
     {
         yield $this->updateStatusActivity->markFailed($input->refundUuid, $input->correlationId, $reason);
         yield $this->publishActivity->publishRefundFailed($input->refundUuid, $input->correlationId);
-        yield $this->callbackActivity->triggerCallback($input->refundUuid, 'refund_failed', $input->correlationId);
+        yield $this->callbackActivity->triggerCallback(
+            $input->paymentUuid, $input->merchantId, $input->amount, $input->currency,
+            'refund.failed', $input->correlationId, $input->refundUuid,
+        );
     }
 
     /**

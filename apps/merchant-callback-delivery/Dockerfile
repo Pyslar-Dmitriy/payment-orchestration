@@ -6,7 +6,8 @@ RUN apk add --no-cache \
         zip \
         unzip \
         libpq-dev \
-    && docker-php-ext-install pdo pdo_pgsql opcache pcntl
+        linux-headers \
+    && docker-php-ext-install pdo pdo_pgsql opcache pcntl sockets
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
@@ -18,8 +19,6 @@ COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-interaction --prefer-dist --optimize-autoloader
 
 COPY . .
-RUN composer dump-autoload --optimize
-
 RUN composer dump-autoload --optimize
 
 FROM base AS local
