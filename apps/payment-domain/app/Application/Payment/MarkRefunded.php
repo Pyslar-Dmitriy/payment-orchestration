@@ -36,8 +36,8 @@ final class MarkRefunded
                 'payload' => [
                     'payment_id' => $payment->id,
                     'merchant_id' => $payment->merchant_id,
-                    'amount' => $payment->amount,
-                    'currency' => $payment->currency,
+                    'provider_id' => $payment->provider_id,
+                    'amount' => ['value' => $payment->amount, 'currency' => $payment->currency],
                     'status' => $payment->status->value,
                     'correlation_id' => $command->correlationId,
                     'occurred_at' => now()->toIso8601String(),

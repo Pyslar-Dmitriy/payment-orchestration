@@ -38,6 +38,8 @@ final class MarkFailed
                 'payload' => [
                     'payment_id' => $payment->id,
                     'merchant_id' => $payment->merchant_id,
+                    'provider_id' => $payment->provider_id,
+                    'amount' => ['value' => $payment->amount, 'currency' => $payment->currency],
                     'failure_code' => $payment->failure_code,
                     'failure_reason' => $payment->failure_reason,
                     'status' => $payment->status->value,
