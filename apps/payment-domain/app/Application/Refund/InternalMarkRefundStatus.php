@@ -33,6 +33,10 @@ final class InternalMarkRefundStatus
         }
 
         return DB::transaction(function () use ($refund, $command, $status): UpdateRefundStatusResult {
+            $providerId = DB::table('payments')
+                ->where('id', $refund->payment_id)
+                ->value('provider_id');
+
             $refund->transition(
                 $status,
                 $command->correlationId,
@@ -40,7 +44,7 @@ final class InternalMarkRefundStatus
             );
 
             $eventType = $this->resolveEventType($status);
-            $payload = $this->buildPayload($refund, $command, $status);
+            $payload = $this->buildPayload($refund, $command, $status, $providerId);
 
             OutboxEvent::create([
                 'aggregate_type' => 'Refund',
@@ -67,12 +71,14 @@ final class InternalMarkRefundStatus
         };
     }
 
-    private function buildPayload(Refund $refund, InternalUpdateRefundStatusCommand $command, RefundStatus $status): array
+    private function buildPayload(Refund $refund, InternalUpdateRefundStatusCommand $command, RefundStatus $status, ?string $providerId): array
     {
         $base = [
             'refund_id' => $refund->id,
             'payment_id' => $refund->payment_id,
             'merchant_id' => $refund->merchant_id,
+            'provider_id' => $providerId,
+            'amount' => ['value' => $refund->amount, 'currency' => $refund->currency],
             'status' => $refund->status->value,
             'correlation_id' => $command->correlationId,
             'occurred_at' => now()->toIso8601String(),
