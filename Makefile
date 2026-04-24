@@ -96,6 +96,10 @@ shell: ## Open a shell in SERVICE container
 	@test -n "$(SERVICE)" || (echo "Usage: make shell SERVICE=<service-name>"; exit 1)
 	$(COMPOSE_LOCAL) exec $(SERVICE) sh
 
+.PHONY: reset-projections
+reset-projections: ## Clear all reporting-projection read models (run before a Kafka replay)
+	$(COMPOSE_LOCAL) exec reporting-projection php artisan reporting:reset-projections --force
+
 # ──────────────────────────────────────────────
 # Help
 # ──────────────────────────────────────────────
