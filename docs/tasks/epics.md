@@ -69,7 +69,7 @@
 - #### EPIC-12. Kafka and projections
   - [x] [TASK-120 — Configure domain event publishing in Kafka](./epic-12/TASK-120.md)
   - [x] [TASK-121 — Implement Reporting Projection Service](./epic-12/TASK-121.md)
-  - [ ] [TASK-122 — Implement replay-friendly projection processing](./epic-12/TASK-122.md)
+  - [x] [TASK-122 — Implement replay-friendly projection processing](./epic-12/TASK-122.md)
 - #### EPIC-13. Observability
   - [ ] [TASK-130 — Implement correlation and causation ids across the platform](./epic-13/TASK-130.md)
   - [ ] [TASK-131 — Configure structured logging](./epic-13/TASK-131.md)
